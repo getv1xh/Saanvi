@@ -42,6 +42,11 @@ export class UserRepository {
                 await client.c.del(`${CACHE_PREFIX}${userId}`);
         }
 
+        async removeAddress(userId, chainKey) {
+                await User.findByIdAndUpdate(userId, { $unset: { [`addresses.${chainKey}`]: '' } });
+                await client.c.del(`${CACHE_PREFIX}${userId}`);
+        }
+
         async getAddress(userId, chainKey) {
                 const user = await this.findById(userId);
                 return user?.addresses?.[chainKey] ?? null;

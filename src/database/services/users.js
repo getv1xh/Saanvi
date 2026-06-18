@@ -13,6 +13,10 @@ export class UserService {
                 await this.repo.setAddress(userId, chainKey, address);
         }
 
+        async removeAddress(userId, chainKey) {
+                await this.repo.removeAddress(userId, chainKey);
+        }
+
         async getAllAddresses(userId) {
                 return await this.repo.getAllAddresses(userId);
         }
