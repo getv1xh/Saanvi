@@ -192,7 +192,7 @@ class ProfileCommand extends Command {
         }
 
         _startCollector(ctx, msg, target, walletEntries, upiId, paypalId) {
-                const collector = msg.createMessageComponentCollector({ time: 120_000 });
+                const collector = msg.createMessageComponentCollector({ idle: 120_000 });
 
                 collector.on('collect', async (i) => {
                         if (i.user.id !== ctx.user.id) {

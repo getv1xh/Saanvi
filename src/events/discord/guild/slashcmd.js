@@ -16,14 +16,15 @@ import { emoji } from '#emoji';
 import QRCode from 'qrcode';
 import sharp from 'sharp';
 import path from 'path';
+import fs from 'fs';
 
 const asset = (file) => path.join(process.cwd(), 'src', 'assets', file);
 
 const QR_FRAMES = [
         {
-                path: asset('qr_frame2.jpg'),
-                box:  { left: 135, top: 183, right: 602, bottom: 593 },
-                pad:  18,
+                buffer: fs.readFileSync(asset('qr_frame2.jpg')),
+                box:    { left: 135, top: 183, right: 602, bottom: 593 },
+                pad:    18,
         },
 ];
 
@@ -150,13 +151,11 @@ const handleChatInputCommand = async (interaction, client) => {
                 let isChannelIgnored   = false;
 
                 try {
-                        isUserBlacklisted = await db.blacklist?.checkBlacklist(userId).catch(() => false) ?? false;
-                        if (inGuild && guildId) {
-                                [isGuildBlacklisted, isChannelIgnored] = await Promise.all([
-                                        db.blacklist?.checkBlacklist(guildId).catch(() => false),
-                                        db.guild?.isChannelIgnored(guildId, channelId).catch(() => false),
-                                ]);
-                        }
+                        [isUserBlacklisted, isGuildBlacklisted, isChannelIgnored] = await Promise.all([
+                                db.blacklist?.checkBlacklist(userId).catch(() => false) ?? false,
+                                inGuild && guildId ? db.blacklist?.checkBlacklist(guildId).catch(() => false) ?? false : false,
+                                inGuild && guildId && channelId ? db.guild?.isChannelIgnored(guildId, channelId).catch(() => false) ?? false : false,
+                        ]);
                 } catch (error) {
                         logger.error('InteractionCreate', `Database check failed: ${error.message}`);
                 }
@@ -286,7 +285,7 @@ const handleQrButton = async (interaction) => {
                 const offsetX = frame.box.left + Math.floor((boxW - qrSize) / 2);
                 const offsetY = frame.box.top  + Math.floor((boxH - qrSize) / 2);
 
-                const compositeBuf = await sharp(frame.path)
+                const compositeBuf = await sharp(frame.buffer)
                         .composite([{ input: qrBuf, top: offsetY, left: offsetX }])
                         .png()
                         .toBuffer();
@@ -324,7 +323,7 @@ const handleUpiQrButton = async (interaction) => {
                 const offsetX = frame.box.left + Math.floor((boxW - qrSize) / 2);
                 const offsetY = frame.box.top  + Math.floor((boxH - qrSize) / 2);
 
-                const compositeBuf = await sharp(frame.path)
+                const compositeBuf = await sharp(frame.buffer)
                         .composite([{ input: qrBuf, top: offsetY, left: offsetX }])
                         .png()
                         .toBuffer();
@@ -362,7 +361,7 @@ const handlePaypalQrButton = async (interaction) => {
                 const offsetX = frame.box.left + Math.floor((boxW - qrSize) / 2);
                 const offsetY = frame.box.top  + Math.floor((boxH - qrSize) / 2);
 
-                const compositeBuf = await sharp(frame.path)
+                const compositeBuf = await sharp(frame.buffer)
                         .composite([{ input: qrBuf, top: offsetY, left: offsetX }])
                         .png()
                         .toBuffer();

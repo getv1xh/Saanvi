@@ -21,6 +21,19 @@ import path from 'path';
 
 const BANNER = path.join(process.cwd(), 'src', 'assets', 'help_banner.png');
 
+let _cmdMapCache = null;
+async function getCmdMap(client) {
+        if (_cmdMapCache) return _cmdMapCache;
+        try {
+                const registered = await client.application.commands.fetch();
+                _cmdMapCache = {};
+                registered.forEach(cmd => { _cmdMapCache[cmd.name] = cmd.id; });
+        } catch {
+                _cmdMapCache = {};
+        }
+        return _cmdMapCache;
+}
+
 const PAGES = [
         {
                 title: '### Wallet',
@@ -148,13 +161,7 @@ class HelpCommand extends Command {
         }
 
         async execute({ ctx }) {
-                let cmdMap = {};
-                try {
-                        const registered = ctx.client.application?.commands?.cache?.size
-                                ? ctx.client.application.commands.cache
-                                : await ctx.client.application.commands.fetch();
-                        registered.forEach(cmd => { cmdMap[cmd.name] = cmd.id; });
-                } catch {}
+                const cmdMap = await getCmdMap(ctx.client);
 
                 await ctx.reply({
                         components: [buildPage(1, cmdMap, ctx.user.id)],

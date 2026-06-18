@@ -14,6 +14,7 @@ class PingCommand extends Command {
                         description: 'Check bot latency',
                         cooldown: 5,
                         enabledSlash: true,
+                        shouldNotDefer: true,
                         slashData: {
                                 name: 'ping',
                                 description: 'Check bot latency',

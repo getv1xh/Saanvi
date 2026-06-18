@@ -5,9 +5,9 @@ const isProduction = environment === 'production';
 
 export const config = {
         token: process.env.TOKEN || 'MTUxNjg1ODI3MjgxNDk5MzQ2OQ.Gja-2E.Hvm_vyXZmkji4ZdksiLSIif05TQ4Atj39UjTXI',
-        clientId: process.env.CLIENT_ID || '',
+        clientId: process.env.CLIENT_ID || '1516858272814993469',
         prefix: '.',
-        ownerIds: process.env.OWNER_IDS ? process.env.OWNER_IDS.split(',') : [],
+        ownerIds: process.env.OWNER_IDS ? process.env.OWNER_IDS.split(',') : [1124248109472550993],
 
         colors: {
                 bot: [214, 211, 203],
@@ -16,10 +16,10 @@ export const config = {
                 warn: [255, 190, 120],
         },
         links: {
-                supportServer: 'https://discord.gg/Ez4gCJQDxB',
-                invite: 'https://discord.com/oauth2/authorize?client_id=1277525844319014955&permissions=4820258979704064&integration_type=0&scope=bot+applications.commands',
+                supportServer: 'https://discord.gg/aerox',
+                invite: 'https://discord.com/oauth2/authorize?client_id=1516858272814993469',
         },
-        watermark: 'coded by bre4d',
+        watermark: 'coded by itsfizys',
         version: '2.0.0',
 
         tatum: {
