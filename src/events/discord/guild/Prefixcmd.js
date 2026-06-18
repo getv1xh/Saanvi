@@ -199,9 +199,6 @@ const handleMentionOnly = async (message, client, guildPrefixes) => {
                                         new MediaGalleryItemBuilder().setURL('attachment://help_banner.png'),
                                 ),
                         )
-                        .addSeparatorComponents(
-                                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
-                        )
                         .addTextDisplayComponents(mentionContent)
                         .addActionRowComponents(mentionButtons);
 
