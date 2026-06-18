@@ -17,8 +17,10 @@ import QRCode from 'qrcode';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-const asset = (file) => path.join(process.cwd(), 'src', 'assets', file);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const asset = (file) => path.join(__dirname, '../../../assets', file);
 
 const QR_FRAMES = [
         {
