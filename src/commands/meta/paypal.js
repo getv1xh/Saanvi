@@ -7,37 +7,36 @@ import {
 import { db } from '#dbManager';
 import { emoji } from '#emoji';
 
-class RemovePaypalCommand extends Command {
+class PaypalCommand extends Command {
         constructor() {
                 super({
-                        name: 'removepaypal',
-                        description: 'Remove your saved PayPal username',
+                        name: 'paypal',
+                        description: 'View your saved PayPal username',
                         cooldown: 5,
                         enabledSlash: true,
+                        shouldNotDefer: true,
                         slashData: {
-                                name: 'removepaypal',
-                                description: 'Remove your saved PayPal username',
+                                name: 'paypal',
+                                description: 'View your saved PayPal username',
                         },
                 });
         }
 
         async execute({ ctx }) {
-                const existing = await db.user.getAddress(ctx.user.id, 'paypal');
+                const username = await db.user.getAddress(ctx.user.id, 'paypal');
 
-                if (!existing) {
+                if (!username) {
                         return ctx.reply({
-                                components: [this._msgContainer(`**No PayPal username saved to remove.**`)],
+                                components: [this._msgContainer(`**No PayPal username saved. Use \`/setpaypal\` first.**`)],
                                 flags: MessageFlags.IsComponentsV2,
                         });
                 }
-
-                await db.user.removeAddress(ctx.user.id, 'paypal');
 
                 const container = new ContainerBuilder()
                         .setAccentColor(0xffffff)
                         .addTextDisplayComponents(
                                 new TextDisplayBuilder().setContent(
-                                        `## ${emoji.paypal}  PayPal\n-# Username removed\n\`\`\`${existing}\`\`\``,
+                                        `## ${emoji.paypal}  PayPal\n\`\`\`${username}\`\`\``,
                                 ),
                         );
 
@@ -54,4 +53,4 @@ class RemovePaypalCommand extends Command {
         }
 }
 
-export default new RemovePaypalCommand();
+export default new PaypalCommand();
