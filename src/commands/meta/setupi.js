@@ -48,7 +48,7 @@ class SetUpiCommand extends Command {
                         .setAccentColor(0xffffff)
                         .addTextDisplayComponents(
                                 new TextDisplayBuilder().setContent(
-                                        `## ${emoji.upi}  UPI\n-# ID saved\n\`\`\`${upiId}\`\`\``,
+                                        `## ${emoji.upi}\n-# ID saved\n\`\`\`${upiId}\`\`\``,
                                 ),
                         );
 
