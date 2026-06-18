@@ -156,14 +156,7 @@ export async function generatePriceChart(chainKey) {
                         animation: false,
                         plugins: {
                                 legend: { display: false },
-                                title: {
-                                        display: true,
-                                        text: `${priceLabel}   ${isUp ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%  (7d)`,
-                                        color: '#ffffff',
-                                        font: { size: 17, weight: 'bold', family: 'sans-serif' },
-                                        padding: { top: 18, bottom: 10 },
-                                        align: 'center',
-                                },
+                                title: { display: false },
                         },
                         scales: {
                                 x: {
