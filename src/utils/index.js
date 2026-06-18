@@ -6,3 +6,4 @@ export * from './chainConfig.js';
 export * from './tatum.js';
 export * from './formatters.js';
 export * from './price.js';
+export * from './chart.js';

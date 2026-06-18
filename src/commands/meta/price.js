@@ -1,15 +1,16 @@
 import { Command } from '#command';
 import {
         ContainerBuilder,
-        SectionBuilder,
-        ThumbnailBuilder,
         TextDisplayBuilder,
         SeparatorBuilder,
         SeparatorSpacingSize,
+        MediaGalleryBuilder,
+        MediaGalleryItemBuilder,
         MessageFlags,
         ApplicationCommandOptionType,
+        AttachmentBuilder,
 } from 'discord.js';
-import { resolveChain, getPrice, formatUSD, CHAINS } from '#utils';
+import { resolveChain, getPrice, formatUSD, CHAINS, generatePriceChart } from '#utils';
 import { emoji } from '#emoji';
 
 const FEATURED = ['btc', 'eth', 'ltc', 'sol', 'trx', 'xrp'];
@@ -23,11 +24,6 @@ const FEATURED_CHOICES = FEATURED.map(key => ({
         name: `${CHAINS[key].name} (${CHAINS[key].symbol})`,
         value: key,
 }));
-
-function emojiImageUrl(emojiStr) {
-        const m = (emojiStr || '').match(/<a?:.+?:(\d+)>/);
-        return m ? `https://cdn.discordapp.com/emojis/${m[1]}.png` : null;
-}
 
 class PriceCommand extends Command {
         constructor() {
@@ -74,7 +70,10 @@ class PriceCommand extends Command {
                         });
                 }
 
-                const { price, change24h } = await getPrice(chainCfg.key);
+                const [{ price, change24h }, chartBuffer] = await Promise.all([
+                        getPrice(chainCfg.key),
+                        generatePriceChart(chainCfg.key),
+                ]);
 
                 if (!price) {
                         return ctx.reply({
@@ -87,21 +86,20 @@ class PriceCommand extends Command {
                 const change24Abs = Math.abs(change24h).toFixed(2);
                 const changeArrow = change24h >= 0 ? emoji.arrowup : emoji.arrowdown;
 
-                const imageUrl  = emojiImageUrl(chainCfg.emoji);
                 const container = new ContainerBuilder().setAccentColor(0xffffff);
 
-                const headerText =
-                        `## ${chainCfg.emoji}  ${chainCfg.name}  \`${chainCfg.symbol}\`\n` +
-                        `-# Live market data`;
+                container.addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                `## ${chainCfg.emoji}  ${chainCfg.name}  \`${chainCfg.symbol}\``,
+                        ),
+                );
 
-                if (imageUrl) {
-                        container.addSectionComponents(
-                                new SectionBuilder()
-                                        .addTextDisplayComponents(new TextDisplayBuilder().setContent(headerText))
-                                        .setThumbnailAccessory(new ThumbnailBuilder().setURL(imageUrl)),
+                if (chartBuffer) {
+                        container.addMediaGalleryComponents(
+                                new MediaGalleryBuilder().addItems(
+                                        new MediaGalleryItemBuilder().setURL('attachment://chart.png'),
+                                ),
                         );
-                } else {
-                        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(headerText));
                 }
 
                 container.addSeparatorComponents(
@@ -115,8 +113,13 @@ class PriceCommand extends Command {
                         ),
                 );
 
+                const files = chartBuffer
+                        ? [new AttachmentBuilder(chartBuffer, { name: 'chart.png' })]
+                        : [];
+
                 return ctx.reply({
                         components: [container],
+                        files,
                         flags: MessageFlags.IsComponentsV2,
                 });
         }
