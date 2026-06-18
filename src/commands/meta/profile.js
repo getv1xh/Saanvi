@@ -73,11 +73,8 @@ class ProfileCommand extends Command {
 
                 const container = new ContainerBuilder()
                         .setAccentColor(0xffffff)
-                        .addSectionComponents(
-                                new SectionBuilder()
-                                        .addTextDisplayComponents(
-                                                new TextDisplayBuilder().setContent(`## ${target.username}'s Profile`),
-                                        ),
+                        .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(`## ${target.username}'s Profile`),
                         )
                         .addSeparatorComponents(
                                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
