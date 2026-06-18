@@ -58,11 +58,9 @@ class ProfileCommand extends Command {
         }
 
         _buildProfile(target, walletEntries, upiId) {
-                const avatarUrl   = target.displayAvatarURL({ size: 256, extension: 'png' });
                 const sinceTs     = Math.floor(target.createdTimestamp / 1000);
                 const walletCount = walletEntries.length;
                 const botName     = client.user?.username ?? 'Bot';
-                const botAvatar   = client.user?.displayAvatarURL({ size: 64, extension: 'png' });
 
                 const userInfo =
                         `> -# ${emoji.p_id} **ID** \`${target.id}\`\n` +
@@ -71,7 +69,7 @@ class ProfileCommand extends Command {
 
                 const savedInfo =
                         `> -# ${emoji.p_counts} **Wallets Saved** \`${walletCount}\`\n` +
-                        `> -# ${emoji.upi} **UPI** ${upiId ? `\`${upiId}\`` : '`not set`'}`;
+                        `> -# ${emoji.money} **UPI** ${upiId ? `\`${upiId}\`` : '`not set`'}`;
 
                 const container = new ContainerBuilder()
                         .setAccentColor(0xffffff)
@@ -79,8 +77,7 @@ class ProfileCommand extends Command {
                                 new SectionBuilder()
                                         .addTextDisplayComponents(
                                                 new TextDisplayBuilder().setContent(`## ${target.username}'s Profile`),
-                                        )
-                                        .setThumbnailAccessory(new ThumbnailBuilder().setURL(avatarUrl)),
+                                        ),
                         )
                         .addSeparatorComponents(
                                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
@@ -112,21 +109,15 @@ class ProfileCommand extends Command {
                                 ),
                         );
 
-                if (botAvatar) {
-                        container
-                                .addSeparatorComponents(
-                                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
-                                )
-                                .addSectionComponents(
-                                        new SectionBuilder()
-                                                .addTextDisplayComponents(
-                                                        new TextDisplayBuilder().setContent(
-                                                                `-# All rights reserved by ${botName}`,
-                                                        ),
-                                                )
-                                                .setThumbnailAccessory(new ThumbnailBuilder().setURL(botAvatar)),
-                                );
-                }
+                container
+                        .addSeparatorComponents(
+                                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        )
+                        .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(
+                                        `-# ${emoji.botlogo} All rights reserved by ${botName}`,
+                                ),
+                        );
 
                 return container;
         }
