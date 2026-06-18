@@ -14,6 +14,8 @@ import {
 } from 'discord.js';
 import { db } from '#dbManager';
 import { CHAINS, disableComponents } from '#utils';
+import { emoji } from '#emoji';
+import { client } from '#src/bot';
 
 const BTN = {
         WALLETS: 'profile:wallets',
@@ -48,49 +50,50 @@ class ProfileCommand extends Command {
                 const upiId         = addresses?.upi ?? null;
                 const walletEntries = Object.entries(addresses || {}).filter(([k]) => k !== 'upi');
 
-                const container = this._buildOverview(target, walletEntries, upiId);
+                const container = this._buildProfile(target, walletEntries, upiId);
 
                 await ctx.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
                 const msg = await ctx.fetchReply();
                 this._startCollector(ctx, msg, target, walletEntries, upiId);
         }
 
-        _buildOverview(target, walletEntries, upiId) {
-                const avatarUrl  = target.displayAvatarURL({ size: 256, extension: 'png' });
-                const sinceTs    = Math.floor(target.createdTimestamp / 1000);
+        _buildProfile(target, walletEntries, upiId) {
+                const avatarUrl   = target.displayAvatarURL({ size: 256, extension: 'png' });
+                const sinceTs     = Math.floor(target.createdTimestamp / 1000);
                 const walletCount = walletEntries.length;
+                const botName     = client.user?.username ?? 'Bot';
+                const botAvatar   = client.user?.displayAvatarURL({ size: 64, extension: 'png' });
 
-                // Chain names preview e.g. "Bitcoin · Ethereum · Solana · +2 more"
-                const SHOW = 3;
-                const chainNames = walletEntries.map(([k]) => CHAINS[k]?.name ?? k.toUpperCase());
-                const walletPreview = walletCount === 0
-                        ? '-# no wallets saved'
-                        : '> ' + chainNames.slice(0, SHOW).join(' · ') +
-                          (walletCount > SHOW ? ` · +${walletCount - SHOW} more` : '');
+                const userInfo =
+                        `> -# ${emoji.p_id} **ID** \`${target.id}\`\n` +
+                        `> -# ${emoji.p_mention} **Mention** <@${target.id}>\n` +
+                        `> -# ${emoji.p_join} **Account Created** <t:${sinceTs}:D>`;
 
-                const upiLine = upiId
-                        ? `> ${upiId}`
-                        : '-# not configured';
-
-                const body =
-                        `**Wallets**  ·  ${walletCount} saved\n${walletPreview}\n\n` +
-                        `**UPI**\n${upiLine}`;
+                const savedInfo =
+                        `> -# ${emoji.p_counts} **Wallets Saved** \`${walletCount}\`\n` +
+                        `> -# ${emoji.upi} **UPI** ${upiId ? `\`${upiId}\`` : '`not set`'}`;
 
                 const container = new ContainerBuilder()
                         .setAccentColor(0xffffff)
                         .addSectionComponents(
                                 new SectionBuilder()
                                         .addTextDisplayComponents(
-                                                new TextDisplayBuilder().setContent(
-                                                        `## ${target.username}\n-# Crypto Profile  ·  Since <t:${sinceTs}:D>`,
-                                                ),
+                                                new TextDisplayBuilder().setContent(`## ${target.username}'s Profile`),
                                         )
                                         .setThumbnailAccessory(new ThumbnailBuilder().setURL(avatarUrl)),
                         )
                         .addSeparatorComponents(
                                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
                         )
-                        .addTextDisplayComponents(new TextDisplayBuilder().setContent(body))
+                        .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(`### __User Info__\n${userInfo}`),
+                        )
+                        .addSeparatorComponents(
+                                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        )
+                        .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(`### __Saved__\n${savedInfo}`),
+                        )
                         .addSeparatorComponents(
                                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
                         )
@@ -98,16 +101,32 @@ class ProfileCommand extends Command {
                                 new ActionRowBuilder().addComponents(
                                         new ButtonBuilder()
                                                 .setCustomId(BTN.WALLETS)
-                                                .setLabel('View Wallets')
+                                                .setLabel('Crypto Wallets')
                                                 .setStyle(ButtonStyle.Secondary)
                                                 .setDisabled(walletCount === 0),
                                         new ButtonBuilder()
                                                 .setCustomId(BTN.UPI)
-                                                .setLabel('View UPI')
+                                                .setLabel('UPI')
                                                 .setStyle(ButtonStyle.Secondary)
                                                 .setDisabled(!upiId),
                                 ),
                         );
+
+                if (botAvatar) {
+                        container
+                                .addSeparatorComponents(
+                                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                                )
+                                .addSectionComponents(
+                                        new SectionBuilder()
+                                                .addTextDisplayComponents(
+                                                        new TextDisplayBuilder().setContent(
+                                                                `-# All rights reserved by ${botName}`,
+                                                        ),
+                                                )
+                                                .setThumbnailAccessory(new ThumbnailBuilder().setURL(botAvatar)),
+                                );
+                }
 
                 return container;
         }
@@ -117,9 +136,7 @@ class ProfileCommand extends Command {
 
                 const lines = walletEntries.map(([key, addr]) => {
                         const chain = CHAINS[key];
-                        const label = chain
-                                ? `**${chain.name}** \`${chain.symbol}\``
-                                : `**${key.toUpperCase()}**`;
+                        const label = chain ? `**${chain.name}** \`${chain.symbol}\`` : `**${key.toUpperCase()}**`;
                         return `${label}\n> \`${addr}\``;
                 }).join('\n\n');
 
@@ -129,7 +146,7 @@ class ProfileCommand extends Command {
                                 new SectionBuilder()
                                         .addTextDisplayComponents(
                                                 new TextDisplayBuilder().setContent(
-                                                        `## ${target.username}  ·  Wallets\n-# ${walletEntries.length} address${walletEntries.length !== 1 ? 'es' : ''} saved`,
+                                                        `## ${target.username}'s Profile\n### __Crypto Wallets__\n-# ${walletEntries.length} address${walletEntries.length !== 1 ? 'es' : ''} saved`,
                                                 ),
                                         )
                                         .setThumbnailAccessory(new ThumbnailBuilder().setURL(avatarUrl)),
@@ -149,7 +166,7 @@ class ProfileCommand extends Command {
                                 new SectionBuilder()
                                         .addTextDisplayComponents(
                                                 new TextDisplayBuilder().setContent(
-                                                        `## ${target.username}  ·  UPI`,
+                                                        `## ${target.username}'s Profile\n### __UPI__`,
                                                 ),
                                         )
                                         .setThumbnailAccessory(new ThumbnailBuilder().setURL(avatarUrl)),
