@@ -25,11 +25,6 @@ const QR_FRAMES = [
                 box:  { left: 286, top: 79, right: 649, bottom: 434 },
                 pad:  12,
         },
-        {
-                path: asset('qr_frame2.jpg'),
-                box:  { left: 135, top: 183, right: 602, bottom: 593 },
-                pad:  18,
-        },
 ];
 
 const errorContainer = new ContainerBuilder();
