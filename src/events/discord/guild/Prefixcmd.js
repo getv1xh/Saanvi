@@ -183,15 +183,11 @@ const handleMentionOnly = async (message, client, guildPrefixes) => {
                 if (!canBotSendMessages(message.channel)) return true;
 
                 mentionContainer.components.length = 0;
-                mentionContainer.setAccentColor(config.colors?.bot || 0x5865f2);
-                mentionTitle.data.content = `## ${client.user.username}`;
+                mentionContainer.setAccentColor(0xffffff);
                 mentionContent.data.content =
-                        `${emoji?.code || '📝'} **Server Prefixes**\n\n` +
-                        `-# ${guildPrefixes.map((p) => `\`${p}\``).join(' • ')}` +
-                        `\n\n-# Use \`${guildPrefixes[0]}help\` for commands\n`;
+                        `${emoji?.string || ''} **Bot Supports** → \`/\`\n` +
+                        `-# For seeing all commands \`/help\``;
                 mentionContainer
-                        .addTextDisplayComponents(mentionTitle)
-                        .addSeparatorComponents(mentionSeparator)
                         .addTextDisplayComponents(mentionContent)
                         .addActionRowComponents(mentionButtons);
 
