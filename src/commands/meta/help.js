@@ -12,20 +12,31 @@ import {
 const SECTIONS = [
         {
                 title: '### Wallet',
-                commands: ['setaddy', 'addy', 'bal', 'mybal'],
+                commands: ['setaddy', 'addy', 'removeaddy', 'bal', 'mybal'],
                 descriptions: {
-                        setaddy: 'save an address for a chain',
-                        addy:    'show a saved address with a QR button',
-                        bal:     'look up any wallet by address',
-                        mybal:   'detailed view of your saved wallet',
+                        setaddy:   'save an address for a chain',
+                        addy:      'show a saved address with a QR button',
+                        removeaddy:'remove a saved wallet address',
+                        bal:       'look up any wallet by address',
+                        mybal:     'detailed view of your saved wallet',
                 },
         },
         {
                 title: '### UPI',
-                commands: ['setupi', 'upi'],
+                commands: ['setupi', 'upi', 'removeupi'],
                 descriptions: {
-                        setupi: 'save your UPI ID',
-                        upi:    'show your saved UPI ID with a QR button',
+                        setupi:    'save your UPI ID',
+                        upi:       'show your saved UPI ID with a QR button',
+                        removeupi: 'remove your saved UPI ID',
+                },
+        },
+        {
+                title: '### PayPal',
+                commands: ['setpaypal', 'paypal', 'removepaypal'],
+                descriptions: {
+                        setpaypal:    'save your PayPal username',
+                        paypal:       'show your saved PayPal username with a QR button',
+                        removepaypal: 'remove your saved PayPal username',
                 },
         },
         {
@@ -34,6 +45,13 @@ const SECTIONS = [
                 descriptions: {
                         price: 'live price and 24h change',
                         tx:    'transaction lookup, chain auto detected',
+                },
+        },
+        {
+                title: '### Profile',
+                commands: ['profile'],
+                descriptions: {
+                        profile: 'view wallets, UPI and PayPal saved by any user',
                 },
         },
 ];
