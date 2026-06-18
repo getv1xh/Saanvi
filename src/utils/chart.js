@@ -116,11 +116,20 @@ export async function generatePriceChart(chainKey) {
         const lineColor  = isUp ? '#4ade80' : '#f87171';
         const fillColor  = isUp ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)';
 
-        const canvas = createCanvas(900, 280);
+        const W = 900, H = 320;
+        const canvas = createCanvas(W, H);
         const ctx    = canvas.getContext('2d');
 
-        ctx.fillStyle = '#111214';
-        ctx.fillRect(0, 0, 900, 280);
+        // Background
+        ctx.fillStyle = '#0f1012';
+        ctx.fillRect(0, 0, W, H);
+
+        // Subtle top border line
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(0, 0, W, 1);
+
+        const priceLabel = `$${endPrice.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+        const changeLabel = `${isUp ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%  (7d)`;
 
         const chart = new Chart(ctx, {
                 type: 'line',
@@ -129,9 +138,15 @@ export async function generatePriceChart(chainKey) {
                         datasets: [{
                                 data: values,
                                 borderColor: lineColor,
-                                backgroundColor: fillColor,
+                                backgroundColor: (ctx2) => {
+                                        const grad = ctx2.chart.ctx.createLinearGradient(0, 0, 0, H);
+                                        grad.addColorStop(0, isUp ? 'rgba(74,222,128,0.25)' : 'rgba(248,113,113,0.25)');
+                                        grad.addColorStop(1, 'rgba(0,0,0,0)');
+                                        return grad;
+                                },
                                 borderWidth: 2.5,
                                 pointRadius: 0,
+                                pointHoverRadius: 0,
                                 fill: true,
                                 tension: 0.35,
                         }],
@@ -143,32 +158,42 @@ export async function generatePriceChart(chainKey) {
                                 legend: { display: false },
                                 title: {
                                         display: true,
-                                        text: `7d  ·  ${isUp ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%`,
-                                        color: isUp ? '#4ade80' : '#f87171',
-                                        font: { size: 13, weight: 'bold', family: 'sans-serif' },
-                                        padding: { top: 14, bottom: 6 },
-                                        align: 'end',
+                                        text: [`${priceLabel}`, `${changeLabel}`],
+                                        color: ['#ffffff', lineColor],
+                                        font: [
+                                                { size: 18, weight: 'bold', family: 'sans-serif' },
+                                                { size: 13, weight: 'normal', family: 'sans-serif' },
+                                        ],
+                                        padding: { top: 18, bottom: 12 },
+                                        align: 'center',
                                 },
                         },
                         scales: {
                                 x: {
-                                        ticks: { color: '#555', font: { size: 10 }, maxRotation: 0, maxTicksLimit: 8 },
-                                        grid:  { color: 'rgba(255,255,255,0.04)' },
-                                        border: { color: 'rgba(255,255,255,0.08)' },
+                                        ticks: {
+                                                color: '#666',
+                                                font: { size: 11, family: 'sans-serif' },
+                                                maxRotation: 0,
+                                                maxTicksLimit: 9,
+                                                padding: 6,
+                                        },
+                                        grid:  { color: 'rgba(255,255,255,0.05)' },
+                                        border: { color: 'rgba(255,255,255,0.1)', dash: [4, 4] },
                                 },
                                 y: {
                                         position: 'right',
                                         ticks: {
-                                                color: '#555',
-                                                font: { size: 10 },
+                                                color: '#666',
+                                                font: { size: 11, family: 'sans-serif' },
+                                                padding: 8,
                                                 callback: (v) =>
                                                         `$${Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })}`,
                                         },
-                                        grid:  { color: 'rgba(255,255,255,0.04)' },
-                                        border: { color: 'rgba(255,255,255,0.08)' },
+                                        grid:  { color: 'rgba(255,255,255,0.05)' },
+                                        border: { color: 'rgba(255,255,255,0.1)', dash: [4, 4] },
                                 },
                         },
-                        layout: { padding: { left: 16, right: 16, bottom: 14, top: 0 } },
+                        layout: { padding: { left: 20, right: 20, bottom: 16, top: 0 } },
                 },
         });
 
