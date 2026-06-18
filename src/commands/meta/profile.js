@@ -20,6 +20,7 @@ import { client } from '#src/bot';
 const BTN = {
         WALLETS: 'profile:wallets',
         UPI:     'profile:upi',
+        PAYPAL:  'profile:paypal',
 };
 
 class ProfileCommand extends Command {
@@ -47,17 +48,18 @@ class ProfileCommand extends Command {
         async execute({ ctx }) {
                 const target        = ctx.options.getUser('user') || ctx.user;
                 const addresses     = await db.user.getAllAddresses(target.id);
-                const upiId         = addresses?.upi ?? null;
-                const walletEntries = Object.entries(addresses || {}).filter(([k]) => k !== 'upi');
+                const upiId         = addresses?.upi    ?? null;
+                const paypalId      = addresses?.paypal ?? null;
+                const walletEntries = Object.entries(addresses || {}).filter(([k]) => k !== 'upi' && k !== 'paypal');
 
-                const container = this._buildProfile(target, walletEntries, upiId);
+                const container = this._buildProfile(target, walletEntries, upiId, paypalId);
 
                 await ctx.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
                 const msg = await ctx.fetchReply();
-                this._startCollector(ctx, msg, target, walletEntries, upiId);
+                this._startCollector(ctx, msg, target, walletEntries, upiId, paypalId);
         }
 
-        _buildProfile(target, walletEntries, upiId) {
+        _buildProfile(target, walletEntries, upiId, paypalId) {
                 const sinceTs     = Math.floor(target.createdTimestamp / 1000);
                 const walletCount = walletEntries.length;
                 const botName     = client.user?.username ?? 'Bot';
@@ -69,7 +71,8 @@ class ProfileCommand extends Command {
 
                 const savedInfo =
                         `> -# ${emoji.p_counts} **Wallets Saved** \`${walletCount}\`\n` +
-                        `> -# ${emoji.money} **UPI** ${upiId ? `\`${upiId}\`` : '`not set`'}`;
+                        `> -# ${emoji.money} **UPI** ${upiId ? `\`${upiId}\`` : '`not set`'}\n` +
+                        `> -# ${emoji.paypal} **PayPal** ${paypalId ? `\`${paypalId}\`` : '`not set`'}`;
 
                 const container = new ContainerBuilder()
                         .setAccentColor(0xffffff)
@@ -103,6 +106,11 @@ class ProfileCommand extends Command {
                                                 .setLabel('UPI')
                                                 .setStyle(ButtonStyle.Secondary)
                                                 .setDisabled(!upiId),
+                                        new ButtonBuilder()
+                                                .setCustomId(BTN.PAYPAL)
+                                                .setLabel('PayPal')
+                                                .setStyle(ButtonStyle.Secondary)
+                                                .setDisabled(!paypalId),
                                 ),
                         );
 
@@ -167,7 +175,23 @@ class ProfileCommand extends Command {
                         );
         }
 
-        _startCollector(ctx, msg, target, walletEntries, upiId) {
+        _buildPaypalContainer(target, paypalId) {
+                return new ContainerBuilder()
+                        .setAccentColor(0xffffff)
+                        .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(
+                                        `## ${target.username}'s Profile\n### __PayPal__`,
+                                ),
+                        )
+                        .addSeparatorComponents(
+                                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        )
+                        .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(`> \`${paypalId}\``),
+                        );
+        }
+
+        _startCollector(ctx, msg, target, walletEntries, upiId, paypalId) {
                 const collector = msg.createMessageComponentCollector({ time: 120_000 });
 
                 collector.on('collect', async (i) => {
@@ -186,6 +210,11 @@ class ProfileCommand extends Command {
                         } else if (i.customId === BTN.UPI) {
                                 await i.reply({
                                         components: [this._buildUPIContainer(target, upiId)],
+                                        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                                });
+                        } else if (i.customId === BTN.PAYPAL) {
+                                await i.reply({
+                                        components: [this._buildPaypalContainer(target, paypalId)],
                                         flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
                                 });
                         }
