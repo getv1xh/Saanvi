@@ -1,24 +1,36 @@
 import { Command } from '#command';
 import {
         ContainerBuilder,
-        SectionBuilder,
-        ThumbnailBuilder,
         TextDisplayBuilder,
         SeparatorBuilder,
         SeparatorSpacingSize,
+        ActionRowBuilder,
+        ButtonBuilder,
+        ButtonStyle,
+        MediaGalleryBuilder,
+        MediaGalleryItemBuilder,
+        AttachmentBuilder,
+        ModalBuilder,
+        TextInputBuilder,
+        TextInputStyle,
         MessageFlags,
 } from 'discord.js';
+import { disableComponents } from '#utils';
+import { emoji } from '#emoji';
+import path from 'path';
 
-const SECTIONS = [
+const BANNER = path.join(process.cwd(), 'src', 'assets', 'help_banner.png');
+
+const PAGES = [
         {
                 title: '### Wallet',
                 commands: ['setaddy', 'addy', 'removeaddy', 'bal', 'mybal'],
                 descriptions: {
-                        setaddy:   'save an address for a chain',
-                        addy:      'show a saved address with a QR button',
-                        removeaddy:'remove a saved wallet address',
-                        bal:       'look up any wallet by address',
-                        mybal:     'detailed view of your saved wallet',
+                        setaddy:    'save an address for a chain',
+                        addy:       'show a saved address with a QR button',
+                        removeaddy: 'remove a saved wallet address',
+                        bal:        'look up any wallet by address',
+                        mybal:      'detailed view of your saved wallet',
                 },
         },
         {
@@ -40,21 +52,77 @@ const SECTIONS = [
                 },
         },
         {
-                title: '### Market',
-                commands: ['price', 'tx'],
+                title: '### Market & Profile',
+                commands: ['price', 'tx', 'profile'],
                 descriptions: {
-                        price: 'live price and 24h change',
-                        tx:    'transaction lookup, chain auto detected',
-                },
-        },
-        {
-                title: '### Profile',
-                commands: ['profile'],
-                descriptions: {
+                        price:   'live price and 24h change',
+                        tx:      'transaction lookup, chain auto detected',
                         profile: 'view wallets, UPI and PayPal saved by any user',
                 },
         },
 ];
+
+const TOTAL = PAGES.length;
+
+function parseEmoji(str) {
+        const m = str.match(/<:(\w+):(\d+)>/);
+        return m ? { name: m[1], id: m[2] } : { name: str };
+}
+
+function buildNavRow(page, userId) {
+        return new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                        .setCustomId(`help:prev:${page}:${userId}`)
+                        .setEmoji(parseEmoji(emoji.pg_prev))
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(page <= 1),
+                new ButtonBuilder()
+                        .setCustomId(`help:label:${page}`)
+                        .setLabel(`${page} / ${TOTAL}`)
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true),
+                new ButtonBuilder()
+                        .setCustomId(`help:next:${page}:${userId}`)
+                        .setEmoji(parseEmoji(emoji.pg_next))
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(page >= TOTAL),
+                new ButtonBuilder()
+                        .setCustomId(`help:jump:${page}:${userId}`)
+                        .setEmoji(parseEmoji(emoji.pg_jump))
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(TOTAL <= 1),
+        );
+}
+
+function buildPage(page, cmdMap, userId) {
+        const section = PAGES[page - 1];
+        const mention = (name) => cmdMap[name] ? `</${name}:${cmdMap[name]}>` : `\`/${name}\``;
+        const lines   = section.commands
+                .map(name => `${mention(name)}  ${section.descriptions[name]}`)
+                .join('\n');
+
+        return new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addMediaGalleryComponents(
+                        new MediaGalleryBuilder().addItems(
+                                new MediaGalleryItemBuilder().setURL('attachment://help_banner.png'),
+                        ),
+                )
+                .addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                )
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(`${section.title}\n${lines}`),
+                )
+                .addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                )
+                .addActionRowComponents(buildNavRow(page, userId));
+}
+
+function banner() {
+        return new AttachmentBuilder(BANNER, { name: 'help_banner.png' });
+}
 
 class HelpCommand extends Command {
         constructor() {
@@ -72,63 +140,80 @@ class HelpCommand extends Command {
         }
 
         async execute({ ctx }) {
-                const client = ctx.client;
-
-                // Fetch registered commands and build a name→id map
                 let cmdMap = {};
                 try {
-                        const registered = client.application?.commands?.cache?.size
-                                ? client.application.commands.cache
-                                : await client.application.commands.fetch();
+                        const registered = ctx.client.application?.commands?.cache?.size
+                                ? ctx.client.application.commands.cache
+                                : await ctx.client.application.commands.fetch();
                         registered.forEach(cmd => { cmdMap[cmd.name] = cmd.id; });
                 } catch {}
 
-                const mention = (name) =>
-                        cmdMap[name] ? `</${name}:${cmdMap[name]}>` : `\`/${name}\``;
+                await ctx.reply({
+                        components: [buildPage(1, cmdMap, ctx.user.id)],
+                        files:      [banner()],
+                        flags:      MessageFlags.IsComponentsV2,
+                });
 
-                const botAvatarUrl = client.user.displayAvatarURL({ size: 256, extension: 'png' });
-                const botName = client.user.username;
+                const msg       = await ctx.fetchReply();
+                const collector = msg.createMessageComponentCollector({ idle: 180_000 });
 
-                const container = new ContainerBuilder().setAccentColor(0xffffff);
+                collector.on('collect', async (i) => {
+                        if (i.user.id !== ctx.user.id) {
+                                return i.reply({
+                                        content: 'This menu belongs to someone else.',
+                                        flags:   MessageFlags.Ephemeral,
+                                });
+                        }
 
-                // Header with bot avatar thumbnail
-                container.addSectionComponents(
-                        new SectionBuilder()
-                                .addTextDisplayComponents(
-                                        new TextDisplayBuilder().setContent(
-                                                `# ${botName}\n-# Multi-chain crypto wallet, prices and transaction alerts.`,
-                                        ),
-                                )
-                                .setThumbnailAccessory(new ThumbnailBuilder().setURL(botAvatarUrl)),
-                );
+                        const parts = i.customId.split(':');
 
-                container.addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
-                );
+                        if (parts[1] === 'prev' || parts[1] === 'next') {
+                                const cur     = parseInt(parts[2]);
+                                const newPage = Math.max(1, Math.min(TOTAL, parts[1] === 'prev' ? cur - 1 : cur + 1));
+                                await i.deferUpdate();
+                                await i.editReply({
+                                        components: [buildPage(newPage, cmdMap, ctx.user.id)],
+                                        files:      [banner()],
+                                });
 
-                // Command sections
-                const sectionLines = SECTIONS.map(section => {
-                        const lines = section.commands.map(
-                                name => `${mention(name)}  ${section.descriptions[name]}`,
-                        );
-                        return `${section.title}\n${lines.join('\n')}`;
-                }).join('\n');
+                        } else if (parts[1] === 'jump') {
+                                const modal = new ModalBuilder()
+                                        .setCustomId('help_jump')
+                                        .setTitle('Jump to Page')
+                                        .addComponents(
+                                                new ActionRowBuilder().addComponents(
+                                                        new TextInputBuilder()
+                                                                .setCustomId('page_num')
+                                                                .setLabel(`Page number (1 – ${TOTAL})`)
+                                                                .setStyle(TextInputStyle.Short)
+                                                                .setMinLength(1)
+                                                                .setMaxLength(1)
+                                                                .setRequired(true),
+                                                ),
+                                        );
 
-                container.addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(sectionLines),
-                );
+                                await i.showModal(modal);
 
-                container.addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
-                );
+                                const sub = await i.awaitModalSubmit({
+                                        time:   60_000,
+                                        filter: m => m.user.id === ctx.user.id,
+                                }).catch(() => null);
 
-                container.addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`-# Supports **175** coins`),
-                );
+                                if (!sub) return;
 
-                return ctx.reply({
-                        components: [container],
-                        flags: MessageFlags.IsComponentsV2,
+                                const raw     = sub.fields.getTextInputValue('page_num').trim();
+                                const newPage = Math.max(1, Math.min(TOTAL, parseInt(raw) || 1));
+
+                                await sub.deferUpdate();
+                                await sub.editReply({
+                                        components: [buildPage(newPage, cmdMap, ctx.user.id)],
+                                        files:      [banner()],
+                                });
+                        }
+                });
+
+                collector.on('end', async () => {
+                        await disableComponents(msg).catch(() => {});
                 });
         }
 }

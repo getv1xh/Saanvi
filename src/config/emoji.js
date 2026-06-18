@@ -22,6 +22,10 @@ export const emoji = {
         p_money:   '<:p_money:1517058282848653352>',
         p_clock:   '<:p_clock:1517058281871507537>',
 
+        pg_prev:   '<:pg_prev:1517072038949294100>',
+        pg_next:   '<:pg_next:1517072042468442162>',
+        pg_jump:   '<:pg_jump:1517072045656248373>',
+
         arrowup:   '<:arrowup:1516882251026010234>',
         arrowdown: '<:arrowdown:1516872424371650591>',
         plus:      '<:plus:1516882253039403320>',
