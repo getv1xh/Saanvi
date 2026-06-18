@@ -86,7 +86,8 @@ class PriceCommand extends Command {
                 const change24Abs = Math.abs(change24h).toFixed(2);
                 const changeArrow = change24h >= 0 ? emoji.arrowup : emoji.arrowdown;
 
-                const container = new ContainerBuilder().setAccentColor(0xffffff);
+                const accentColor = change24h >= 0 ? 0x4ade80 : 0xf87171;
+                const container = new ContainerBuilder().setAccentColor(accentColor);
 
                 container.addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
