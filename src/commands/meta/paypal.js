@@ -1,5 +1,8 @@
 import { Command } from '#command';
 import {
+        ActionRowBuilder,
+        ButtonBuilder,
+        ButtonStyle,
         ContainerBuilder,
         TextDisplayBuilder,
         MessageFlags,
@@ -32,17 +35,23 @@ class PaypalCommand extends Command {
                         });
                 }
 
-                const container = new ContainerBuilder()
-                        .setAccentColor(0xffffff)
-                        .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                        `## ${emoji.paypal}  PayPal\n\`\`\`${username}\`\`\``,
+                const customId  = `paypal_qr:${username}`;
+                const showButton = customId.length <= 100;
+
+                const components = showButton
+                        ? [
+                                new ActionRowBuilder().addComponents(
+                                        new ButtonBuilder()
+                                                .setCustomId(customId)
+                                                .setLabel('Generate QR')
+                                                .setStyle(ButtonStyle.Secondary),
                                 ),
-                        );
+                          ]
+                        : [];
 
                 return ctx.reply({
-                        components: [container],
-                        flags: MessageFlags.IsComponentsV2,
+                        content: `\`${username}\``,
+                        components,
                 });
         }
 
