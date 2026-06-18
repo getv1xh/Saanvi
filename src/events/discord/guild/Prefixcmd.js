@@ -7,12 +7,18 @@ import {
         SeparatorBuilder,
         SeparatorSpacingSize,
         ActionRowBuilder,
+        MediaGalleryBuilder,
+        MediaGalleryItemBuilder,
+        AttachmentBuilder,
 } from 'discord.js';
+import path from 'path';
 import { config } from '#config';
 import { db } from '#dbManager';
 import { CommandContext } from '#context';
 import { validateCommand, canBotSendMessages, logger } from '#utils';
 import { emoji } from '#emoji';
+
+const BANNER = path.join(process.cwd(), 'src', 'assets', 'help_banner.png');
 
 const regexCache = new Map();
 
@@ -188,11 +194,23 @@ const handleMentionOnly = async (message, client, guildPrefixes) => {
                         `${emoji?.string || ''} **Bot Supports** → \`/\`\n` +
                         `-# For seeing all commands \`/help\``;
                 mentionContainer
+                        .addMediaGalleryComponents(
+                                new MediaGalleryBuilder().addItems(
+                                        new MediaGalleryItemBuilder().setURL('attachment://help_banner.png'),
+                                ),
+                        )
+                        .addSeparatorComponents(
+                                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        )
                         .addTextDisplayComponents(mentionContent)
                         .addActionRowComponents(mentionButtons);
 
                 await message
-                        .reply({ components: [mentionContainer], flags: MessageFlags.IsComponentsV2 })
+                        .reply({
+                                components: [mentionContainer],
+                                files:      [new AttachmentBuilder(BANNER, { name: 'help_banner.png' })],
+                                flags:      MessageFlags.IsComponentsV2,
+                        })
                         .catch(() => {});
 
                 if (client.commandHandler) {
