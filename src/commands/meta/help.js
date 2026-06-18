@@ -60,6 +60,14 @@ const PAGES = [
                         profile: 'view wallets, UPI and PayPal saved by any user',
                 },
         },
+        {
+                title: '### Utility',
+                commands: ['ping', 'stats'],
+                descriptions: {
+                        ping:  'check websocket, database and average latency',
+                        stats: 'view bot uptime, servers, users and command count',
+                },
+        },
 ];
 
 const TOTAL = PAGES.length;

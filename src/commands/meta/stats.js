@@ -7,6 +7,7 @@ import {
         SeparatorBuilder,
         SeparatorSpacingSize,
         MessageFlags,
+        version as djsVersion,
 } from 'discord.js';
 import { client } from '#src/bot';
 
@@ -46,19 +47,28 @@ class StatsCommand extends Command {
                 const commands = client.commandHandler?.slashCommands?.size ?? 0;
                 const uptime   = formatUptime(client.uptime ?? 0);
                 const avatar   = client.user.displayAvatarURL({ size: 256 });
+                const heap     = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
+                const nodeVer  = process.version.replace('v', '');
 
-                const info =
-                        `> **Commands:** \`${commands}\`\n` +
-                        `> **Uptime:** \`${uptime}\`\n` +
-                        `> **Users:** \`${fmt(users)}\`\n` +
-                        `> **Servers:** \`${fmt(servers)}\``;
+                const sysInfo =
+                        `**System Info**\n` +
+                        `> **discord.js:** [**${djsVersion}**](https://discord.js.org)\n` +
+                        `> **Node.js:** [**${nodeVer}**](https://nodejs.org)\n` +
+                        `> **Heap Usage:** ${heap} MB`;
+
+                const botInfo =
+                        `**Bot Info**\n` +
+                        `> **Commands:** ${commands}\n` +
+                        `> **Uptime:** ${uptime}\n` +
+                        `> **Users:** ${fmt(users)}\n` +
+                        `> **Servers:** ${fmt(servers)}`;
 
                 const container = new ContainerBuilder()
                         .setAccentColor(0xffffff)
                         .addSectionComponents(
                                 new SectionBuilder()
                                         .addTextDisplayComponents(
-                                                new TextDisplayBuilder().setContent(`## ${client.user.username}`),
+                                                new TextDisplayBuilder().setContent(sysInfo),
                                         )
                                         .setThumbnailAccessory(
                                                 new ThumbnailBuilder().setURL(avatar),
@@ -68,7 +78,7 @@ class StatsCommand extends Command {
                                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
                         )
                         .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(`### Bot Info\n${info}`),
+                                new TextDisplayBuilder().setContent(botInfo),
                         );
 
                 await ctx.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
