@@ -12,13 +12,15 @@ import {
         AttachmentBuilder,
 } from 'discord.js';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from '#config';
 import { db } from '#dbManager';
 import { CommandContext } from '#context';
 import { validateCommand, canBotSendMessages, logger } from '#utils';
 import { emoji } from '#emoji';
 
-const BANNER = path.join(process.cwd(), 'src', 'assets', 'help_banner.png');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BANNER = path.join(__dirname, '../../../assets', 'help_banner.png');
 
 const regexCache = new Map();
 

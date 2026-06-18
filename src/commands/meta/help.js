@@ -18,8 +18,10 @@ import {
 import { disableComponents } from '#utils';
 import { emoji } from '#emoji';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const BANNER = path.join(process.cwd(), 'src', 'assets', 'help_banner.png');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BANNER = path.join(__dirname, '../../assets', 'help_banner.png');
 
 let _cmdMapCache = null;
 async function getCmdMap(client) {
