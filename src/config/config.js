@@ -17,7 +17,8 @@ export const config = {
         },
         links: {
                 supportServer: 'https://discord.gg/aerox',
-                invite: 'https://discord.com/oauth2/authorize?client_id=1516858272814993469',
+                invite:  'https://discord.com/oauth2/authorize?client_id=1516858272814993469',
+                install: 'https://discord.com/oauth2/authorize?client_id=1516858272814993469&integration_type=1&scope=applications.commands',
         },
         watermark: 'coded by itsfizys',
         version: '2.0.0',

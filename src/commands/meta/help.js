@@ -77,10 +77,12 @@ const PAGES = [
         },
         {
                 title: '### Utility',
-                commands: ['ping', 'stats'],
+                commands: ['ping', 'stats', 'invite', 'support'],
                 descriptions: {
-                        ping:  'check websocket, database and average latency',
-                        stats: 'view bot uptime, servers, users and command count',
+                        ping:    'check websocket, database and average latency',
+                        stats:   'view bot uptime, servers, users and command count',
+                        invite:  'invite Flake to your server or install as an app',
+                        support: 'get a link to the support server',
                 },
         },
 ];
