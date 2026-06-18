@@ -11,7 +11,7 @@ export const emoji = {
 
         money:     '<:money:1517061464538742846>',
         botlogo:   '<:botlogo:1517061463083061280>',
-        paypal:    '<:paypal:1517067058301374494>',
+        paypal:    '<:paypal:1517067707122450503>',
 
         string:    '<:string:1517051299793862810>',
 

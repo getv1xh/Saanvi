@@ -344,6 +344,44 @@ const handleUpiQrButton = async (interaction) => {
         }
 };
 
+const handlePaypalQrButton = async (interaction) => {
+        try {
+                await interaction.deferUpdate();
+
+                const username  = interaction.customId.slice('paypal_qr:'.length);
+                const paypalUrl = `https://paypal.me/${username.replace(/^@/, '')}`;
+
+                const frame = QR_FRAMES[Math.floor(Math.random() * QR_FRAMES.length)];
+
+                const boxW  = frame.box.right - frame.box.left;
+                const boxH  = frame.box.bottom - frame.box.top;
+                const qrSize = Math.min(boxW, boxH) - frame.pad * 2;
+
+                const qrBuf = await QRCode.toBuffer(paypalUrl, {
+                        type: 'png',
+                        width: qrSize,
+                        margin: 1,
+                        color: { dark: '#000000', light: '#00000000' },
+                });
+
+                const offsetX = frame.box.left + Math.floor((boxW - qrSize) / 2);
+                const offsetY = frame.box.top  + Math.floor((boxH - qrSize) / 2);
+
+                const compositeBuf = await sharp(frame.path)
+                        .composite([{ input: qrBuf, top: offsetY, left: offsetX }])
+                        .png()
+                        .toBuffer();
+
+                const attachment = new AttachmentBuilder(compositeBuf, { name: 'qr.png' });
+
+                await interaction.editReply({ components: [] });
+                await interaction.followUp({ files: [attachment] });
+        } catch (error) {
+                logger.error('InteractionCreate', `PayPal QR generation error: ${error.message}`);
+                await interaction.followUp({ content: 'Failed to generate QR code.' }).catch(() => {});
+        }
+};
+
 const handleMessageComponent = async (interaction) => {
         if (interaction.componentType !== ComponentType.Button) return;
 
@@ -351,6 +389,8 @@ const handleMessageComponent = async (interaction) => {
                 await handleQrButton(interaction);
         } else if (interaction.customId.startsWith('upi_qr:')) {
                 await handleUpiQrButton(interaction);
+        } else if (interaction.customId.startsWith('paypal_qr:')) {
+                await handlePaypalQrButton(interaction);
         }
 };
 
