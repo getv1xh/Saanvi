@@ -250,8 +250,6 @@ const getCommand = (parts, commandHandler) => {
 export default {
         name: 'messageCreate',
         async execute({ eventArgs, client }) {
-                return; // prefix commands disabled
-
                 if (!eventArgs || !eventArgs[0] || !client) return;
 
                 const [message] = eventArgs;

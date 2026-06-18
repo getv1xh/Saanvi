@@ -123,36 +123,38 @@ export class CommandHandler {
                         const command = commandModule.default;
                         command.category = category;
 
-                        if (Array.isArray(command.name)) {
-                                const firstPart = command.name[0].toLowerCase();
-
-                                if (command.name.length > 1) {
-                                        if (!this.arrayCommands.has(firstPart)) {
-                                                this.arrayCommands.set(firstPart, []);
-                                        }
-                                        this.arrayCommands.get(firstPart).push(command);
-                                }
-
-                                const arrayKey = command.name.join(':').toLowerCase();
-                                this.commands.set(arrayKey, command);
-                                this.commandPaths.set(arrayKey, filePath);
-                        } else {
-                                const cmdName = command.name.toLowerCase();
-                                this.commandPaths.set(cmdName, filePath);
-                                this.commands.set(cmdName, command);
-                        }
-
-                        if (command.aliases?.length) {
+                        if (command.prefix !== false) {
                                 if (Array.isArray(command.name)) {
+                                        const firstPart = command.name[0].toLowerCase();
+
+                                        if (command.name.length > 1) {
+                                                if (!this.arrayCommands.has(firstPart)) {
+                                                        this.arrayCommands.set(firstPart, []);
+                                                }
+                                                this.arrayCommands.get(firstPart).push(command);
+                                        }
+
                                         const arrayKey = command.name.join(':').toLowerCase();
-                                        command.aliases.forEach((alias) =>
-                                                this.aliases.set(alias.toLowerCase(), arrayKey),
-                                        );
+                                        this.commands.set(arrayKey, command);
+                                        this.commandPaths.set(arrayKey, filePath);
                                 } else {
                                         const cmdName = command.name.toLowerCase();
-                                        command.aliases.forEach((alias) =>
-                                                this.aliases.set(alias.toLowerCase(), cmdName),
-                                        );
+                                        this.commandPaths.set(cmdName, filePath);
+                                        this.commands.set(cmdName, command);
+                                }
+
+                                if (command.aliases?.length) {
+                                        if (Array.isArray(command.name)) {
+                                                const arrayKey = command.name.join(':').toLowerCase();
+                                                command.aliases.forEach((alias) =>
+                                                        this.aliases.set(alias.toLowerCase(), arrayKey),
+                                                );
+                                        } else {
+                                                const cmdName = command.name.toLowerCase();
+                                                command.aliases.forEach((alias) =>
+                                                        this.aliases.set(alias.toLowerCase(), cmdName),
+                                                );
+                                        }
                                 }
                         }
 
