@@ -4,8 +4,8 @@ const environment = process.env.NODE_ENV || 'development';
 const isProduction = environment === 'production';
 
 export const config = {
-        token: process.env.TOKEN || 'MTUxNjg1ODI3MjgxNDk5MzQ2OQ.Gja-2E.Hvm_vyXZmkji4ZdksiLSIif05TQ4Atj39UjTXI',
-        clientId: process.env.CLIENT_ID || '1516858272814993469',
+        token: process.env.TOKEN || '',
+        clientId: process.env.CLIENT_ID || '',
         prefix: '.',
         ownerIds: process.env.OWNER_IDS ? process.env.OWNER_IDS.split(',') : [1124248109472550993],
 
@@ -24,11 +24,11 @@ export const config = {
         version: '2.0.0',
 
         tatum: {
-                apiKey: process.env.TATUM_API_KEY || 't-6a32e1360800fc78aa4f2dc1-8cc48e42e29f4948a7181cd0',
+                apiKey: process.env.TATUM_API_KEY || '',
         },
 
         database: {
-                url: process.env.MONGODB_URI || 'mongodb+srv://Flake:Flake22222@frost-cluster.ef3hz4o.mongodb.net/?appName=Frost-Cluster',
+                url: process.env.MONGODB_URI || '',
         },
 
         cache: {
