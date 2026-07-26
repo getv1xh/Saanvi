@@ -1,0 +1,163 @@
+FLAKE CUSTOM LICENSE
+Copyright (c) 2026 itsfizys (Aegis) — AeroX Development
+All rights reserved.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROJECT INFORMATION
+───────────────────
+Project:       Flake
+Author:        itsfizys (Aegis)
+Organization:  AeroX Development
+GitHub:        https://github.com/AeroXDevs
+Support:       https://discord.gg/AeroX (AeroX Development Discord Server)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PREAMBLE
+────────
+This license governs the use, modification, and distribution of the Flake
+software project ("the Software"), authored and owned by itsfizys (Aegis) under
+AeroX Development. By accessing, downloading, cloning, or otherwise using the
+Software, you agree to be bound by the terms and conditions set forth in this
+license. If you do not agree to these terms, you must not use, copy, or interact
+with the Software in any way.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. PERMITTED USES (PERSONAL USE)
+─────────────────────────────────
+You are granted a limited, non-exclusive, non-transferable, revocable license to:
+
+  a) Download and run the Software on your own personal infrastructure or server
+     strictly for personal, non-commercial use.
+
+  b) Read and study the source code for personal educational purposes.
+
+  c) Make private modifications to the Software solely for your own personal use,
+     provided that such modified versions are never shared, distributed, published,
+     or made publicly accessible in any form.
+
+  d) Use the Software to operate a Discord bot for your own personal Discord
+     server(s), provided no commercial benefit, monetization, or redistribution
+     is involved.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2. PROHIBITED USES
+──────────────────
+The following actions are strictly prohibited without explicit prior written
+permission from the original author, itsfizys (Aegis):
+
+  a) DISTRIBUTION — You may not distribute, share, transfer, sublicense, or
+     otherwise make the Software or any portion of it available to any third
+     party, whether in original or modified form, via any medium (including but
+     not limited to GitHub, GitLab, file-sharing services, Discord, or any other
+     platform).
+
+  b) PUBLIC RELEASE OF MODIFIED VERSIONS — You may not publicly release, publish,
+     post, or deploy any modified, forked, or derivative version of the Software.
+     This includes rebranded versions, partial rewrites that use this codebase as
+     a base, and any project substantially derived from this Software.
+
+  c) COMMERCIAL USE — You may not sell, rent, lease, license, or otherwise
+     monetize the Software or any derivative work, in whole or in part. This
+     includes offering hosting services, bots-as-a-service, or any paid product
+     or service that incorporates this Software.
+
+  d) RESELLING — You may not resell, auction, or profit from access to the
+     Software, its source code, or any derivative work in any way.
+
+  e) CLAIMING AUTHORSHIP — You may not remove, alter, or obscure any copyright
+     notices, author attributions, or license headers present in the Software.
+     You may not represent yourself or any other party as the original author
+     of the Software.
+
+  f) SUBLICENSING — You may not sublicense, re-license, or grant any rights to
+     the Software to any third party under any terms other than those explicitly
+     permitted by this license.
+
+  g) AUTOMATED REDISTRIBUTION — You may not include this Software, in whole or
+     in part, in any automated pipeline, package registry, bot list, template
+     repository, or similar system that makes it accessible to others without
+     explicit permission.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3. REQUESTING PERMISSION
+─────────────────────────
+If you wish to use the Software in any manner not explicitly permitted under
+Section 1, you must obtain prior written consent from the author.
+
+To request permission, please contact itsfizys (Aegis) through the official
+AeroX Development support server:
+
+  Discord Support Server: https://discord.gg/AeroX
+
+All permission requests must be made in writing (Discord message is acceptable)
+and must clearly describe the intended use. Permission is granted solely at the
+author's discretion and may be revoked at any time.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4. INTELLECTUAL PROPERTY
+─────────────────────────
+The Software, including but not limited to its source code, structure,
+architecture, logic, design, and documentation, is and remains the exclusive
+intellectual property of itsfizys (Aegis) and AeroX Development.
+
+No rights, ownership, or intellectual property interests are transferred to any
+user under this license. Use of the Software does not grant you any ownership
+rights whatsoever.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5. NO WARRANTY
+───────────────
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. THE AUTHOR MAKES NO GUARANTEES
+REGARDING THE RELIABILITY, AVAILABILITY, OR SUITABILITY OF THE SOFTWARE FOR ANY
+PARTICULAR PURPOSE.
+
+IN NO EVENT SHALL THE AUTHOR OR AEROХ DEVELOPMENT BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6. TERMINATION
+───────────────
+This license and the rights granted hereunder will terminate automatically and
+immediately upon any breach of its terms by you. Upon termination, you must
+cease all use of the Software and destroy all copies in your possession.
+
+The author reserves the right to revoke this license at any time, for any
+reason, with or without notice.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7. GOVERNING LAW
+─────────────────
+This license shall be interpreted in accordance with general principles of
+intellectual property and software licensing law. Any disputes arising under
+this license shall be resolved through direct communication with the author
+via the official support channels before any other action is taken.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8. CONTACT & SUPPORT
+──────────────────────
+For questions, permissions, bug reports, or support, please reach out through
+the official AeroX Development Discord community:
+
+  Discord: https://discord.gg/AeroX
+  GitHub:  https://github.com/itsfizys
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+© 2026 itsfizys (Aegis) — AeroX Development. All rights reserved.
