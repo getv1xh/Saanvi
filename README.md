@@ -256,4 +256,4 @@ Join the **AeroX Development** server for help, updates, and feedback.
 
 ## License
 
-MIT
+Custom
