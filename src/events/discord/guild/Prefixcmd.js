@@ -350,7 +350,7 @@ export default {
                                 !isOwner(message.author.id) &&
                                 !(await db.user.isPremium(message.author.id).catch(() => false))
                         ) {
-                                return message.reply(premiumPromptOptions()).catch(() => {});
+                                return message.reply(premiumPromptOptions(message.author.id)).catch(() => {});
                         }
 
                         if (command.cooldown && client.commandHandler) {

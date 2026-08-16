@@ -15,7 +15,10 @@ import {
         canBypassPremium,
         isOwner,
         logger,
+        PREMIUM_COMPONENT_PREFIX,
         PREMIUM_PRICING_BUTTON_ID,
+        premiumPaymentPayload,
+        premiumPlanPayload,
         premiumPromptOptions,
         premiumPricingPayload,
 } from '#utils';
@@ -248,7 +251,7 @@ const handleChatInputCommand = async (interaction, client) => {
                         shouldCheckPremium &&
                         !(await db.user.isPremium(userId).catch(() => false))
                 ) {
-                        return respond(interaction, premiumPromptOptions()).catch(() => {});
+                        return respond(interaction, premiumPromptOptions(userId)).catch(() => {});
                 }
 
                 const cooldownScope = guildId ?? userId;
@@ -442,17 +445,129 @@ const handlePaypalQrButton = async (interaction) => {
 
 const handlePremiumPricingButton = async (interaction) => {
         try {
-                await interaction.update(premiumPricingPayload());
+                const [, , ownerId] = interaction.customId.split(':');
+                if (ownerId && ownerId !== '0' && ownerId !== interaction.user.id) {
+                        return interaction.reply({
+                                content: 'This premium menu belongs to someone else.',
+                                flags: MessageFlags.Ephemeral,
+                        });
+                }
+
+                await interaction.update(premiumPricingPayload(interaction.user.id));
         } catch (error) {
                 logger.error('InteractionCreate', `Premium pricing button failed: ${error.message}`, error);
+        }
+};
+
+const paymentLabels = {
+        coingate: 'Coingate Gift Card',
+        usdt_pol: 'USDT POL Chain',
+        usdt_bep20: 'USDT BEP20 Chain',
+        solana: 'Solana',
+        litecoin: 'Litecoin',
+};
+
+const planLabels = {
+        user: 'User Premium',
+        server: 'Server Premium',
+};
+
+const enforcePremiumRequestLimit = async (client, userId) => {
+        const cooldownKey = `premium:req:cooldown:${userId}`;
+        const dayKey = `premium:req:day:${userId}`;
+        const weekKey = `premium:req:week:${userId}`;
+
+        const cooldownSet = await client.c.setnxex(cooldownKey, true, 600);
+        if (!cooldownSet) return 'Please wait 10 minutes before sending another premium request.';
+
+        const dayCount = await client.c.incr(dayKey);
+        if (dayCount === 1) await client.c.expire(dayKey, 86400);
+        if (dayCount > 2) return 'Daily limit reached. You can request premium access 2 times per day.';
+
+        const weekCount = await client.c.incr(weekKey);
+        if (weekCount === 1) await client.c.expire(weekKey, 604800);
+        if (weekCount > 5) return 'Weekly limit reached. You can request premium access 5 times per week.';
+
+        return null;
+};
+
+const notifyOwnersOfPremiumRequest = async (interaction, plan, method) => {
+        const guildLine = interaction.guild
+                ? `**Server:** ${interaction.guild.name} (\`${interaction.guild.id}\`)`
+                : '**Server:** User app / DM context';
+        const content =
+                '<:premium:1538553546352361572> **Premium Access Request**\n' +
+                `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n` +
+                `${guildLine}\n` +
+                `**Plan:** ${planLabels[plan] || plan}\n` +
+                `**Payment:** ${paymentLabels[method] || method}`;
+
+        let sent = 0;
+        for (const ownerId of config.ownerIds || []) {
+                try {
+                        const owner = await interaction.client.users.fetch(ownerId);
+                        await owner.send(content);
+                        sent++;
+                } catch (error) {
+                        logger.warn('Premium', `Failed to DM owner ${ownerId}: ${error.message}`);
+                }
+        }
+
+        return sent;
+};
+
+const handlePremiumComponent = async (interaction) => {
+        const parts = interaction.customId.split(':');
+        const action = parts[1];
+        const plan = parts[2];
+        const ownerId = parts.at(-1);
+
+        if (ownerId && ownerId !== '0' && ownerId !== interaction.user.id) {
+                return interaction.reply({
+                        content: 'This premium menu belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        if (action === 'plan') {
+                return interaction.update(premiumPlanPayload(plan, interaction.user.id));
+        }
+
+        if (action === 'request') {
+                return interaction.update(premiumPaymentPayload(plan, interaction.user.id));
+        }
+
+        if (action === 'pay') {
+                const method = parts[3];
+                const limitMessage = await enforcePremiumRequestLimit(interaction.client, interaction.user.id);
+                if (limitMessage) {
+                        return interaction.reply({ content: limitMessage, flags: MessageFlags.Ephemeral });
+                }
+
+                const sent = await notifyOwnersOfPremiumRequest(interaction, plan, method);
+                return interaction.update({
+                        components: [
+                                premiumPlanPayload(plan, interaction.user.id).components[0]
+                                        .addTextDisplayComponents(
+                                                new TextDisplayBuilder().setContent(
+                                                        sent > 0
+                                                                ? `-# Request sent to owner. Payment: ${paymentLabels[method] || method}`
+                                                                : '-# Could not DM the owner. Please contact support manually.',
+                                                ),
+                                        ),
+                        ],
+                        flags: MessageFlags.IsComponentsV2,
+                });
         }
 };
 
 const handleMessageComponent = async (interaction) => {
         if (interaction.componentType !== ComponentType.Button) return;
 
-        if (interaction.customId === PREMIUM_PRICING_BUTTON_ID) {
+        if (interaction.customId === PREMIUM_PRICING_BUTTON_ID || interaction.customId.startsWith(`${PREMIUM_PRICING_BUTTON_ID}:`)) {
                 await handlePremiumPricingButton(interaction);
+        } else if (interaction.customId.startsWith(PREMIUM_COMPONENT_PREFIX)) {
+                await handlePremiumComponent(interaction);
         } else if (interaction.customId.startsWith('addy_qr:')) {
                 await handleQrButton(interaction);
         } else if (interaction.customId.startsWith('upi_qr:')) {
