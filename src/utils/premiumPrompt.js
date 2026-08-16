@@ -148,7 +148,7 @@ export const premiumPlanPayload = (plan, userId = '0') => {
                                         .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'ask-support', plan, userLabel(userId)))
                                         .setLabel('Ask Support')
                                         .setStyle(ButtonStyle.Secondary)
-                                        .setDisabled(true),
+                                        .setDisabled(false),
                         ),
                 );
 

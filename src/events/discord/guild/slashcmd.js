@@ -493,14 +493,18 @@ const planLabels = {
 };
 
 const FOLLOW_UP_MESSAGE_INPUT_ID = 'premium_follow_up_message';
+const PREMIUM_SUPPORT_MESSAGE_INPUT_ID = 'premium_support_message';
 const DOTS_EMOJI = '<:dots:1538555958228164759>';
 
 const premiumCustomId = (...parts) =>
         ['premium', ...parts].filter(Boolean).join(':');
 
 const premiumPlanPaymentText = (plan, method) =>
-        `> ${DOTS_EMOJI} Plan: ${planLabels[plan] || plan}\n` +
-        `> ${DOTS_EMOJI}Payment: ${paymentLabels[method] || method}`;
+        method === 'support'
+                ? `> ${DOTS_EMOJI} Plan: ${planLabels[plan] || plan}\n` +
+                  `> ${DOTS_EMOJI} Type: Premium Support`
+                : `> ${DOTS_EMOJI} Plan: ${planLabels[plan] || plan}\n` +
+                  `> ${DOTS_EMOJI}Payment: ${paymentLabels[method] || method}`;
 
 const followUpButton = (route, userId, plan, method) =>
         new ButtonBuilder()
@@ -539,7 +543,7 @@ const premiumUserFollowUpPayload = (message, plan, method, userId) => {
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 '**Premium Reply**\n' +
-                                message,
+                                `**Owner:** ${message}`,
                         ),
                 )
                 .addSeparatorComponents(
@@ -659,6 +663,101 @@ const showPremiumFollowUpModal = async (interaction, route, userId, plan, method
         return interaction.showModal(modal);
 };
 
+const showPremiumSupportModal = async (interaction, plan) => {
+        const modal = new ModalBuilder()
+                .setCustomId(premiumCustomId('supportmodal', plan, interaction.user.id))
+                .setTitle('Premium Support')
+                .addComponents(
+                        new ActionRowBuilder().addComponents(
+                                new TextInputBuilder()
+                                        .setCustomId(PREMIUM_SUPPORT_MESSAGE_INPUT_ID)
+                                        .setLabel('Premium access question')
+                                        .setPlaceholder('Ask only about premium access, pricing, payment, or activation.')
+                                        .setStyle(TextInputStyle.Paragraph)
+                                        .setMinLength(5)
+                                        .setMaxLength(1000)
+                                        .setRequired(true),
+                        ),
+                );
+
+        return interaction.showModal(modal);
+};
+
+const premiumSupportWarningPayload = (plan, userId) => {
+        const container = new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                '**Premium Support**\n' +
+                                'Please use this form only for premium-access related questions, including pricing, payment, activation, or eligibility.\n\n' +
+                                '**Warning:** Repeated spam, unrelated messages, or misuse of this feature may result in a blacklist.',
+                        ),
+                )
+                .addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                        .setCustomId(premiumCustomId('supportopen', plan, userId))
+                                        .setLabel('Continue')
+                                        .setStyle(ButtonStyle.Secondary),
+                        ),
+                );
+
+        return {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+        };
+};
+
+const sendPremiumSupportQuestionToOwners = async (interaction, plan, message) => {
+        const serverValue = interaction.guild
+                ? `${interaction.guild.name} (\`${interaction.guild.id}\`)`
+                : 'User app / DM context';
+        const container = new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                '**Premium Support Question**\n' +
+                                'A user submitted a premium-access related question.',
+                        ),
+                )
+                .addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                )
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n` +
+                                `**Server:** ${serverValue}\n` +
+                                `**Plan:** ${planLabels[plan] || plan}\n\n` +
+                                `**Message:** ${message}`,
+                        ),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                followUpButton('user', interaction.user.id, plan, 'support'),
+                        ),
+                );
+        const payload = {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
+        };
+
+        let sent = 0;
+        for (const ownerId of config.ownerIds || []) {
+                try {
+                        const owner = await interaction.client.users.fetch(ownerId);
+                        await owner.send(payload);
+                        sent++;
+                } catch (error) {
+                        logger.warn('Premium', `Failed to DM premium support question to owner ${ownerId}: ${error.message}`);
+                }
+        }
+
+        return sent;
+};
+
 const sendPremiumFollowUpToUser = async (interaction, userId, plan, method, message) => {
         if (!isOwner(interaction.user.id)) {
                 return interaction.deferUpdate().catch(() => {});
@@ -675,7 +774,7 @@ const sendPremiumFollowUpToUser = async (interaction, userId, plan, method, mess
         try {
                 await target.send(
                         premiumUserFollowUpPayload(
-                                `**Owner:**\n${message}`,
+                                message,
                                 plan,
                                 method,
                                 userId,
@@ -708,7 +807,7 @@ const sendPremiumFollowUpToOwners = async (interaction, userId, plan, method, me
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 '**Premium Reply**\n' +
-                                'The user sent a premium reply.',
+                                'A user replied to a premium-access conversation.',
                         ),
                 )
                 .addSeparatorComponents(
@@ -718,7 +817,7 @@ const sendPremiumFollowUpToOwners = async (interaction, userId, plan, method, me
                         new TextDisplayBuilder().setContent(
                                 `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n\n` +
                                 premiumPlanPaymentText(plan, method) +
-                                `\n\n**Message:**\n${message}`,
+                                `\n\n**Message:** ${message}`,
                         ),
                 )
                 .addActionRowComponents(
@@ -769,6 +868,47 @@ const handlePremiumFollowUpModal = async (interaction) => {
         if (route === 'owners') {
                 return sendPremiumFollowUpToOwners(interaction, userId, plan, method, message);
         }
+};
+
+const handlePremiumSupportModal = async (interaction) => {
+        const [, action, plan, userId] = interaction.customId.split(':');
+        if (action !== 'supportmodal') return;
+
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This premium support form belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const message = interaction.fields.getTextInputValue(PREMIUM_SUPPORT_MESSAGE_INPUT_ID)?.trim();
+        if (!message) {
+                return interaction.reply({
+                        content: 'Please enter your premium-access question.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const limitMessage = await enforcePremiumRequestLimit(interaction.client, interaction.user.id);
+        if (limitMessage) {
+                return interaction.reply({ content: limitMessage, flags: MessageFlags.Ephemeral });
+        }
+
+        const sent = await sendPremiumSupportQuestionToOwners(interaction, plan, message);
+        const container = new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                sent > 0
+                                        ? '**Premium Support Submitted**\nYour premium-access question has been sent to the owner. Please wait for a reply.'
+                                        : '**Premium Support Saved**\nI could not DM the owner right now. Please contact support manually.',
+                        ),
+                );
+
+        return interaction.reply({
+                components: [container],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+        });
 };
 
 const parseStoredTicket = (raw) => {
@@ -919,6 +1059,19 @@ const handlePremiumComponent = async (interaction) => {
                 return showPremiumFollowUpModal(interaction, route, userId, followPlan, method);
         }
 
+        if (action === 'supportopen') {
+                const supportPlan = parts[2];
+                const userId = parts[3];
+                if (userId && userId !== '0' && userId !== interaction.user.id) {
+                        return interaction.reply({
+                                content: 'This premium support menu belongs to someone else.',
+                                flags: MessageFlags.Ephemeral,
+                        });
+                }
+
+                return showPremiumSupportModal(interaction, supportPlan);
+        }
+
         if (ownerId && ownerId !== '0' && ownerId !== interaction.user.id) {
                 return interaction.reply({
                         content: 'This premium menu belongs to someone else.',
@@ -942,11 +1095,12 @@ const handlePremiumComponent = async (interaction) => {
                 return interaction.update(premiumPlanPayload(plan, interaction.user.id));
         }
 
+        if (action === 'ask-support') {
+                return interaction.reply(premiumSupportWarningPayload(plan, interaction.user.id));
+        }
+
         if (action === 'contact-support') {
-                return interaction.reply({
-                        content: 'Contact support will be available soon.',
-                        flags: MessageFlags.Ephemeral,
-                });
+                return interaction.reply(premiumSupportWarningPayload(plan, interaction.user.id));
         }
 
         if (action === 'payselect') {
@@ -1005,6 +1159,8 @@ export default {
                         } else if (interaction.type === InteractionType.ModalSubmit) {
                                 if (interaction.customId.startsWith(`${PREMIUM_COMPONENT_PREFIX}followmodal:`)) {
                                         await handlePremiumFollowUpModal(interaction);
+                                } else if (interaction.customId.startsWith(`${PREMIUM_COMPONENT_PREFIX}supportmodal:`)) {
+                                        await handlePremiumSupportModal(interaction);
                                 } else if (interaction.customId.startsWith(SUPPORT_MODAL_PREFIX)) {
                                         await handleSupportTicketModal(interaction);
                                 }
