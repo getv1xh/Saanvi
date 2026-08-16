@@ -15,7 +15,9 @@ import {
         canBypassPremium,
         isOwner,
         logger,
+        PREMIUM_PRICING_BUTTON_ID,
         premiumPromptOptions,
+        premiumPricingPayload,
 } from '#utils';
 import { CommandContext } from '#context';
 import { db } from '#dbManager';
@@ -440,10 +442,20 @@ const handlePaypalQrButton = async (interaction) => {
         }
 };
 
+const handlePremiumPricingButton = async (interaction) => {
+        try {
+                await interaction.update(premiumPricingPayload());
+        } catch (error) {
+                logger.error('InteractionCreate', `Premium pricing button failed: ${error.message}`, error);
+        }
+};
+
 const handleMessageComponent = async (interaction) => {
         if (interaction.componentType !== ComponentType.Button) return;
 
-        if (interaction.customId.startsWith('addy_qr:')) {
+        if (interaction.customId === PREMIUM_PRICING_BUTTON_ID) {
+                await handlePremiumPricingButton(interaction);
+        } else if (interaction.customId.startsWith('addy_qr:')) {
                 await handleQrButton(interaction);
         } else if (interaction.customId.startsWith('upi_qr:')) {
                 await handleUpiQrButton(interaction);

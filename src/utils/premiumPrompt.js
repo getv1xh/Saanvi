@@ -11,6 +11,7 @@ import {
 import { config } from '#config';
 
 export const PREMIUM_BYPASS_COMMANDS = new Set(['redeem']);
+export const PREMIUM_PRICING_BUTTON_ID = 'premium:pricing';
 
 export const canBypassPremium = (command) => {
         const name = Array.isArray(command?.name)
@@ -26,9 +27,42 @@ export const premiumPromptPayload = () => {
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 '**Premium Required**\n' +
-                                'Saanvi is currently limited to premium users.\n\n' +
-                                `**Pricing**\n${config.premium.pricing}\n\n` +
-                                'Redeem a code with `!redeem <code>` after purchase.',
+                                '<:premium:1538553546352361572> __**Saanvi is currently limited to premium users.**__',
+                        ),
+                )
+                .addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                        .setCustomId(PREMIUM_PRICING_BUTTON_ID)
+                                        .setLabel('Pricing')
+                                        .setStyle(ButtonStyle.Secondary),
+                        ),
+                );
+
+        return {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
+        };
+};
+
+export const premiumPromptOptions = premiumPromptPayload;
+
+export const premiumPricingPayload = () => {
+        const container = new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                '**Premium Pricing**\n' +
+                                `<:premium:1538553546352361572> **${config.premium.pricing}**\n\n` +
+                                '**What you get**\n' +
+                                '> Full access to Saanvi commands\n' +
+                                '> Crypto utilities and wallet tools\n' +
+                                '> `/ask` AI utility access\n' +
+                                '> Premium-only future utility features\n\n' +
+                                'After purchase, redeem with `!redeem <code>`.',
                         ),
                 )
                 .addSeparatorComponents(
@@ -48,5 +82,3 @@ export const premiumPromptPayload = () => {
                 flags: MessageFlags.IsComponentsV2,
         };
 };
-
-export const premiumPromptOptions = premiumPromptPayload;
