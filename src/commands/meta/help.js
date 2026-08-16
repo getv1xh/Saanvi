@@ -77,9 +77,10 @@ const PAGES = [
         },
         {
                 title: '### Utility',
-                commands: ['ask', 'ping', 'stats', 'invite'],
+                commands: ['ask', 'support', 'ping', 'stats', 'invite'],
                 descriptions: {
                         ask:     'ask Saanvi a question, with optional web search',
+                        support: 'open a premium support ticket',
                         ping:    'check websocket, database and average latency',
                         stats:   'view bot uptime, servers, users and command count',
                         invite:  'invite Saanvi to your server or install as an app',

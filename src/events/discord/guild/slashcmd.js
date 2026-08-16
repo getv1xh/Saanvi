@@ -7,7 +7,6 @@ import {
         SeparatorSpacingSize,
         MessageFlags,
         AttachmentBuilder,
-        EmbedBuilder,
         ActionRowBuilder,
         ButtonBuilder,
         ButtonStyle,
@@ -29,6 +28,19 @@ import {
         premiumPlanPayload,
         premiumPromptOptions,
         premiumPricingPayload,
+        SUPPORT_CATEGORY_SELECT_PREFIX,
+        SUPPORT_CLOSE_PREFIX,
+        SUPPORT_MESSAGE_INPUT_ID,
+        SUPPORT_MODAL_PREFIX,
+        SUPPORT_TICKET_TTL_SECONDS,
+        createSupportTicketId,
+        supportActiveKey,
+        supportAlreadyOpenPayload,
+        supportClosedUserPayload,
+        supportModal,
+        supportSubmittedPayload,
+        supportTicketKey,
+        supportOwnerTicketPayload,
 } from '#utils';
 import { CommandContext } from '#context';
 import { db } from '#dbManager';
@@ -481,14 +493,19 @@ const planLabels = {
 };
 
 const FOLLOW_UP_MESSAGE_INPUT_ID = 'premium_follow_up_message';
+const DOTS_EMOJI = '<:dots:1538555958228164759>';
 
 const premiumCustomId = (...parts) =>
         ['premium', ...parts].filter(Boolean).join(':');
 
+const premiumPlanPaymentText = (plan, method) =>
+        `> ${DOTS_EMOJI} Plan: ${planLabels[plan] || plan}\n` +
+        `> ${DOTS_EMOJI}Payment: ${paymentLabels[method] || method}`;
+
 const followUpButton = (route, userId, plan, method) =>
         new ButtonBuilder()
                 .setCustomId(premiumCustomId('followopen', route, userId, plan, method))
-                .setLabel('Follow Up')
+                .setLabel('Reply')
                 .setStyle(ButtonStyle.Secondary);
 
 const premiumSentPayload = (plan, method, userId, sent) => {
@@ -506,13 +523,7 @@ const premiumSentPayload = (plan, method, userId, sent) => {
                 )
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
-                                `**Plan:** ${planLabels[plan] || plan}\n` +
-                                `**Payment:** ${paymentLabels[method] || method}`,
-                        ),
-                )
-                .addActionRowComponents(
-                        new ActionRowBuilder().addComponents(
-                                followUpButton('owners', userId, plan, method),
+                                premiumPlanPaymentText(plan, method),
                         ),
                 );
 
@@ -527,7 +538,7 @@ const premiumUserFollowUpPayload = (message, plan, method, userId) => {
                 .setAccentColor(0xffffff)
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
-                                '**Premium Follow Up**\n' +
+                                '**Premium Reply**\n' +
                                 message,
                         ),
                 )
@@ -536,8 +547,7 @@ const premiumUserFollowUpPayload = (message, plan, method, userId) => {
                 )
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
-                                `**Plan:** ${planLabels[plan] || plan}\n` +
-                                `**Payment:** ${paymentLabels[method] || method}`,
+                                premiumPlanPaymentText(plan, method),
                         ),
                 )
                 .addActionRowComponents(
@@ -577,42 +587,39 @@ const notifyOwnersOfPremiumRequest = async (interaction, plan, method) => {
         const serverValue = interaction.guild
                 ? `${interaction.guild.name} (\`${interaction.guild.id}\`)`
                 : 'User app / DM context';
-        const embed = new EmbedBuilder()
-                .setColor(0xffffff)
-                .setTitle('Premium Access Request')
-                .setDescription('<:premium:1538553546352361572> A user requested premium access.')
-                .addFields(
-                        {
-                                name: 'User',
-                                value: `${interaction.user.tag} (\`${interaction.user.id}\`)`,
-                                inline: false,
-                        },
-                        {
-                                name: 'Server',
-                                value: serverValue,
-                                inline: false,
-                        },
-                        {
-                                name: 'Plan',
-                                value: planLabels[plan] || plan,
-                                inline: true,
-                        },
-                        {
-                                name: 'Payment',
-                                value: paymentLabels[method] || method,
-                                inline: true,
-                        },
+        const container = new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                '**Premium Access Request**\n' +
+                                '<:premium:1538553546352361572> A user requested premium access.',
+                        ),
                 )
-                .setTimestamp();
-        const row = new ActionRowBuilder().addComponents(
-                followUpButton('user', interaction.user.id, plan, method),
-        );
+                .addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                )
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n` +
+                                `**Server:** ${serverValue}\n\n` +
+                                premiumPlanPaymentText(plan, method),
+                        ),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                followUpButton('user', interaction.user.id, plan, method),
+                        ),
+                );
+        const payload = {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
+        };
 
         let sent = 0;
         for (const ownerId of config.ownerIds || []) {
                 try {
                         const owner = await interaction.client.users.fetch(ownerId);
-                        await owner.send({ embeds: [embed], components: [row] });
+                        await owner.send(payload);
                         sent++;
                 } catch (error) {
                         logger.warn('Premium', `Failed to DM owner ${ownerId}: ${error.message}`);
@@ -629,14 +636,14 @@ const showPremiumFollowUpModal = async (interaction, route, userId, plan, method
 
         if (route === 'owners' && interaction.user.id !== userId) {
                 return interaction.reply({
-                        content: 'This follow up belongs to someone else.',
+                        content: 'This reply belongs to someone else.',
                         flags: MessageFlags.Ephemeral,
                 });
         }
 
         const modal = new ModalBuilder()
                 .setCustomId(premiumCustomId('followmodal', route, userId, plan, method))
-                .setTitle('Premium Follow Up')
+                .setTitle('Premium Reply')
                 .addComponents(
                         new ActionRowBuilder().addComponents(
                                 new TextInputBuilder()
@@ -675,7 +682,7 @@ const sendPremiumFollowUpToUser = async (interaction, userId, plan, method, mess
                         ),
                 );
         } catch (error) {
-                logger.warn('Premium', `Failed to DM premium follow up to ${userId}: ${error.message}`);
+                logger.warn('Premium', `Failed to DM premium reply to ${userId}: ${error.message}`);
                 return interaction.reply({
                         content: 'Could not DM that user. They may have DMs closed.',
                         flags: MessageFlags.Ephemeral,
@@ -683,7 +690,7 @@ const sendPremiumFollowUpToUser = async (interaction, userId, plan, method, mess
         }
 
         return interaction.reply({
-                content: `Follow up sent to ${target.tag}.`,
+                content: `Reply sent to ${target.tag}.`,
                 flags: MessageFlags.Ephemeral,
         });
 };
@@ -691,47 +698,44 @@ const sendPremiumFollowUpToUser = async (interaction, userId, plan, method, mess
 const sendPremiumFollowUpToOwners = async (interaction, userId, plan, method, message) => {
         if (interaction.user.id !== userId) {
                 return interaction.reply({
-                        content: 'This follow up belongs to someone else.',
+                        content: 'This reply belongs to someone else.',
                         flags: MessageFlags.Ephemeral,
                 });
         }
 
-        const embed = new EmbedBuilder()
-                .setColor(0xffffff)
-                .setTitle('Premium Follow Up')
-                .setDescription('The user sent a premium follow-up message.')
-                .addFields(
-                        {
-                                name: 'User',
-                                value: `${interaction.user.tag} (\`${interaction.user.id}\`)`,
-                                inline: false,
-                        },
-                        {
-                                name: 'Plan',
-                                value: planLabels[plan] || plan,
-                                inline: true,
-                        },
-                        {
-                                name: 'Payment',
-                                value: paymentLabels[method] || method,
-                                inline: true,
-                        },
-                        {
-                                name: 'Message',
-                                value: message,
-                                inline: false,
-                        },
+        const container = new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                '**Premium Reply**\n' +
+                                'The user sent a premium reply.',
+                        ),
                 )
-                .setTimestamp();
-        const row = new ActionRowBuilder().addComponents(
-                followUpButton('user', userId, plan, method),
-        );
+                .addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                )
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n\n` +
+                                premiumPlanPaymentText(plan, method) +
+                                `\n\n**Message:**\n${message}`,
+                        ),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                followUpButton('user', userId, plan, method),
+                        ),
+                );
+        const payload = {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
+        };
 
         let sent = 0;
         for (const ownerId of config.ownerIds || []) {
                 try {
                         const owner = await interaction.client.users.fetch(ownerId);
-                        await owner.send({ embeds: [embed], components: [row] });
+                        await owner.send(payload);
                         sent++;
                 } catch (error) {
                         logger.warn('Premium', `Failed to DM owner ${ownerId}: ${error.message}`);
@@ -740,7 +744,7 @@ const sendPremiumFollowUpToOwners = async (interaction, userId, plan, method, me
 
         return interaction.reply({
                 content: sent > 0
-                        ? 'Follow up sent to the owner.'
+                        ? 'Reply sent to the owner.'
                         : 'Could not DM the owner. Please contact support manually.',
                 flags: MessageFlags.Ephemeral,
         });
@@ -764,6 +768,143 @@ const handlePremiumFollowUpModal = async (interaction) => {
 
         if (route === 'owners') {
                 return sendPremiumFollowUpToOwners(interaction, userId, plan, method, message);
+        }
+};
+
+const parseStoredTicket = (raw) => {
+        if (!raw) return null;
+        if (typeof raw === 'object') return raw;
+
+        try {
+                return JSON.parse(raw);
+        } catch {
+                return null;
+        }
+};
+
+const handleSupportCategorySelect = async (interaction) => {
+        const [, action, userId] = interaction.customId.split(':');
+        if (action !== 'category') return;
+
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This support menu belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const activeTicketId = await interaction.client.c.get(supportActiveKey(userId));
+        if (activeTicketId) {
+                return interaction.reply(supportAlreadyOpenPayload(activeTicketId));
+        }
+
+        const category = interaction.values?.[0];
+        if (!category) {
+                return interaction.reply({
+                        content: 'Please select a support category.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.showModal(supportModal(userId, category));
+};
+
+const notifyOwnersOfSupportTicket = async (interaction, ticket) => {
+        const payload = supportOwnerTicketPayload(ticket);
+        let sent = 0;
+
+        for (const ownerId of config.ownerIds || []) {
+                try {
+                        const owner = await interaction.client.users.fetch(ownerId);
+                        await owner.send(payload);
+                        sent++;
+                } catch (error) {
+                        logger.warn('Support', `Failed to DM owner ${ownerId}: ${error.message}`);
+                }
+        }
+
+        return sent;
+};
+
+const handleSupportTicketModal = async (interaction) => {
+        const [, action, userId, category] = interaction.customId.split(':');
+        if (action !== 'modal') return;
+
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This support modal belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const message = interaction.fields.getTextInputValue(SUPPORT_MESSAGE_INPUT_ID)?.trim();
+        if (!message) {
+                return interaction.reply({
+                        content: 'Please describe your issue.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const ticketId = createSupportTicketId(userId);
+        const reserved = await interaction.client.c.setnxex(
+                supportActiveKey(userId),
+                ticketId,
+                SUPPORT_TICKET_TTL_SECONDS,
+        );
+
+        if (!reserved) {
+                const activeTicketId = await interaction.client.c.get(supportActiveKey(userId));
+                return interaction.reply(supportAlreadyOpenPayload(activeTicketId));
+        }
+
+        const ticket = {
+                id: ticketId,
+                userId,
+                userTag: interaction.user.tag,
+                category,
+                message,
+                createdAt: Date.now(),
+        };
+
+        await interaction.client.c.set(
+                supportTicketKey(ticketId),
+                JSON.stringify(ticket),
+                SUPPORT_TICKET_TTL_SECONDS,
+        );
+
+        const sent = await notifyOwnersOfSupportTicket(interaction, ticket);
+        return interaction.reply(supportSubmittedPayload(ticketId, category, sent));
+};
+
+const handleSupportCloseButton = async (interaction) => {
+        const [, action, ticketId] = interaction.customId.split(':');
+        if (action !== 'close') return;
+
+        if (!isOwner(interaction.user.id)) {
+                return interaction.reply({
+                        content: 'Only the owner can close support tickets.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const ticket = parseStoredTicket(await interaction.client.c.get(supportTicketKey(ticketId)));
+        if (!ticket) {
+                return interaction.reply({
+                        content: 'This ticket is already closed or expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        await interaction.client.c.del(supportActiveKey(ticket.userId));
+        await interaction.client.c.del(supportTicketKey(ticketId));
+
+        await interaction.update(supportOwnerTicketPayload(ticket, true));
+
+        const target = await interaction.client.users.fetch(ticket.userId).catch(() => null);
+        if (target) {
+                await target.send(supportClosedUserPayload(ticket)).catch((error) => {
+                        logger.warn('Support', `Failed to notify user ${ticket.userId}: ${error.message}`);
+                });
         }
 };
 
@@ -834,6 +975,10 @@ const handleMessageComponent = async (interaction) => {
                 await handlePremiumPricingButton(interaction);
         } else if (interaction.customId.startsWith(PREMIUM_COMPONENT_PREFIX)) {
                 await handlePremiumComponent(interaction);
+        } else if (interaction.customId.startsWith(SUPPORT_CATEGORY_SELECT_PREFIX)) {
+                await handleSupportCategorySelect(interaction);
+        } else if (interaction.customId.startsWith(SUPPORT_CLOSE_PREFIX)) {
+                await handleSupportCloseButton(interaction);
         } else if (interaction.customId.startsWith('addy_qr:')) {
                 await handleQrButton(interaction);
         } else if (interaction.customId.startsWith('upi_qr:')) {
@@ -860,6 +1005,8 @@ export default {
                         } else if (interaction.type === InteractionType.ModalSubmit) {
                                 if (interaction.customId.startsWith(`${PREMIUM_COMPONENT_PREFIX}followmodal:`)) {
                                         await handlePremiumFollowUpModal(interaction);
+                                } else if (interaction.customId.startsWith(SUPPORT_MODAL_PREFIX)) {
+                                        await handleSupportTicketModal(interaction);
                                 }
                         }
                 } catch (error) {
