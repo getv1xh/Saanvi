@@ -19,6 +19,7 @@ export class Bot extends Client {
                         intents: [
                                 GatewayIntentBits.Guilds,
                                 GatewayIntentBits.GuildMessages,
+                                GatewayIntentBits.MessageContent,
                         ],
                         partials: [],
                         allowedMentions: { parse: [], repliedUser: false },
