@@ -39,12 +39,11 @@ export const config = {
         },
 
         presences: [
-                { status: 'dnd',    activity: { type: 3, name: 'the blockchain burn' } },
-                { status: 'online', activity: { type: 2, name: 'transaction confirmations' } },
-                { status: 'idle',   activity: { type: 3, name: 'markets bleed in silence' } },
-                { status: 'dnd',    activity: { type: 5, name: 'the bear market' } },
-                { status: 'online', activity: { type: 3, name: 'wallets drain overnight' } },
-                { status: 'idle',   activity: { type: 2, name: 'the mempool whisper' } },
+                { status: 'online', activity: { type: 3, name: 'stars load...' } },
+                { status: 'idle',   activity: { type: 2, name: 'soft clicks' } },
+                { status: 'online', activity: { type: 0, name: 'brewing tiny commands' } },
+                { status: 'idle',   activity: { type: 3, name: 'moonlit utility mode' } },
+                { status: 'online', activity: { type: 3, name: 'stars, charts & tiny tasks' } },
         ],
 
         debug: !isProduction,
