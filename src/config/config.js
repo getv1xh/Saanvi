@@ -45,11 +45,6 @@ export const config = {
                 url: process.env.MONGODB_URI || '',
         },
 
-        sync: {
-                command: process.env.DEV_SYNC_COMMAND || process.env.SYNC_COMMAND || '',
-                timeoutMs: numberEnv(process.env.SYNC_TIMEOUT_MS, 120000),
-        },
-
         cache: {
                 type: 'memory',
                 maxSize: isProduction ? 100000 : 50000,

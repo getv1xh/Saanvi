@@ -1,63 +1,18 @@
-import { spawn } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { Routes } from 'discord-api-types/v10';
 import { Command } from '#command';
-import { config } from '#config';
 import { logger } from '#utils';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT_DIR = path.resolve(__dirname, '../../..');
+const snowflakeRegex = /^\d{17,20}$/;
 
-const runSyncCommand = () =>
-        new Promise((resolve) => {
-                if (!config.sync.command) {
-                        return resolve({
-                                code: 1,
-                                output: 'DEV_SYNC_COMMAND is not configured.',
-                        });
-                }
-
-                const child = spawn('sh', ['-lc', config.sync.command], {
-                        cwd: ROOT_DIR,
-                        env: process.env,
-                        stdio: ['ignore', 'pipe', 'pipe'],
-                });
-
-                let settled = false;
-                let output = '';
-
-                const finish = (result) => {
-                        if (settled) return;
-                        settled = true;
-                        clearTimeout(timer);
-                        resolve(result);
-                };
-
-                const collect = (chunk) => {
-                        output += chunk.toString();
-                        if (output.length > 4000) output = output.slice(-4000);
-                };
-
-                const timer = setTimeout(() => {
-                        child.kill('SIGTERM');
-                        finish({
-                                code: 124,
-                                output: `Sync timed out after ${Math.round(config.sync.timeoutMs / 1000)}s.`,
-                        });
-                }, config.sync.timeoutMs);
-
-                child.stdout.on('data', collect);
-                child.stderr.on('data', collect);
-                child.on('error', (error) => finish({ code: 1, output: error.message }));
-                child.on('close', (code) => finish({ code, output }));
-        });
+const toGuildCommandData = (commands) =>
+        commands.map(({ integration_types, contexts, ...command }) => command);
 
 class SyncCommand extends Command {
         constructor() {
                 super({
                         name: 'sync',
-                        description: 'Sync the latest code to the dev server',
-                        usage: 'sync',
+                        description: 'Sync slash commands to a guild',
+                        usage: 'sync [guildId]',
                         category: 'developer',
                         ownerOnly: true,
                         enabledSlash: false,
@@ -67,23 +22,33 @@ class SyncCommand extends Command {
         }
 
         async execute({ ctx }) {
-                logger.info('Sync', `Sync requested by ${ctx.user.id}`);
+                const guildId = ctx.args[0] || ctx.guild?.id;
 
-                const { code, output } = await runSyncCommand();
-
-                if (code === 0) {
-                        return ctx.reply('<:Heart_Red:1538521542798082060> **DONE.** __**Code synced to dev server.**__');
+                if (!guildId || !snowflakeRegex.test(guildId)) {
+                        return ctx.reply('Sync failed. Use `.sync` in a server or `.sync <guildId>`.');
                 }
 
-                logger.error('Sync', `Sync command failed with code ${code}: ${output}`);
+                const slashData = toGuildCommandData(ctx.client.commandHandler.getSlashCommandsData());
 
-                const lastLine = output
-                        .split('\n')
-                        .map((line) => line.trim())
-                        .filter(Boolean)
-                        .at(-1);
+                if (slashData.length === 0) {
+                        return ctx.reply('Sync failed. No slash commands found to register.');
+                }
 
-                return ctx.reply(lastLine ? `Sync failed. ${lastLine}` : 'Sync failed.');
+                try {
+                        logger.info('Sync', `Slash command sync requested by ${ctx.user.id} for guild ${guildId}`);
+
+                        await ctx.client.rest.put(
+                                Routes.applicationGuildCommands(ctx.client.user.id, guildId),
+                                { body: slashData },
+                        );
+
+                        return ctx.reply(
+                                `<:Heart_Red:1538521542798082060> **DONE.** __**Synced ${slashData.length} slash command(s) to this guild.**__`,
+                        );
+                } catch (error) {
+                        logger.error('Sync', `Guild slash command sync failed for ${guildId}: ${error.message}`, error);
+                        return ctx.reply(`Sync failed. ${error.message}`);
+                }
         }
 }
 
