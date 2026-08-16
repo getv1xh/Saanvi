@@ -155,7 +155,6 @@ class HelpCommand extends Command {
                         description: 'View all available commands',
                         cooldown: 5,
                         enabledSlash: true,
-                        shouldNotDefer: true,
                         slashData: {
                                 name: 'help',
                                 description: 'View all available commands',
