@@ -301,6 +301,7 @@ export default {
 
                         const { command, args } = getCommand(commandInfo.parts, client.commandHandler);
                         if (!command) return;
+                        if (command.ownerOnly && !isOwner(message.author.id)) return;
 
                         if (!canBotSendMessages(message.channel)) {
                                 return await sendDM(
