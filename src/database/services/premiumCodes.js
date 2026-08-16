@@ -17,6 +17,7 @@ const DURATION_UNITS = {
 };
 
 const normaliseCode = (code) => String(code || '').trim().toUpperCase();
+const CODE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class PremiumCodeService {
         constructor() {
@@ -47,7 +48,12 @@ export class PremiumCodeService {
                 for (let i = 0; i < 5; i++) {
                         const code = `SAANVI-${crypto.randomBytes(3).toString('hex').toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
                         try {
-                                return await this.repo.create({ code, createdBy, ...duration });
+                                return await this.repo.create({
+                                        code,
+                                        createdBy,
+                                        expiresAt: new Date(Date.now() + CODE_TTL_MS),
+                                        ...duration,
+                                });
                         } catch (error) {
                                 if (error?.code !== 11000) throw error;
                         }

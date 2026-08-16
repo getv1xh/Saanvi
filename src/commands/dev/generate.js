@@ -33,7 +33,8 @@ class GenerateCommand extends Command {
                         return ctx.reply(
                                 '<:Heart_Red:1538521542798082060> **DONE.** __**Premium code generated.**__\n' +
                                 `**Code:** \`${code.code}\`\n` +
-                                `**Duration:** \`${code.durationLabel}\``,
+                                `**Duration:** \`${code.durationLabel}\`\n` +
+                                `**Redeem Before:** <t:${Math.floor(new Date(code.expiresAt).getTime() / 1000)}:R>`,
                         );
                 } catch (error) {
                         logger.error('Generate', `Failed to generate premium code: ${error.message}`, error);

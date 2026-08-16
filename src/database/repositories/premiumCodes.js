@@ -1,12 +1,13 @@
 import { PremiumCode } from '#dbSchema/premiumCodes';
 
 export class PremiumCodeRepository {
-        async create({ code, durationMs, durationLabel, createdBy }) {
+        async create({ code, durationMs, durationLabel, createdBy, expiresAt }) {
                 const doc = await PremiumCode.create({
                         _id: code,
                         durationMs,
                         durationLabel,
                         createdBy,
+                        expiresAt,
                 });
 
                 return this._normalise(doc.toObject());
@@ -14,7 +15,7 @@ export class PremiumCodeRepository {
 
         async redeem(code, userId) {
                 const doc = await PremiumCode.findOneAndUpdate(
-                        { _id: code, redeemedBy: null },
+                        { _id: code, redeemedBy: null, expiresAt: { $gt: new Date() } },
                         { $set: { redeemedBy: userId, redeemedAt: new Date() } },
                         { new: true },
                 ).lean();

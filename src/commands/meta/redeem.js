@@ -27,7 +27,9 @@ class RedeemCommand extends Command {
 
                         if (!code) {
                                 const existing = await db.premiumCode.findByCode(codeInput);
-                                return ctx.reply(existing ? 'This premium code has already been redeemed.' : 'Invalid premium code.');
+                                if (!existing) return ctx.reply('Invalid premium code.');
+                                if (existing.redeemedBy) return ctx.reply('This premium code has already been redeemed.');
+                                return ctx.reply('This premium code has expired.');
                         }
 
                         const expiresAt = await db.user.grantPremium(ctx.user.id, code.durationMs);
