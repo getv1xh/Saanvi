@@ -56,6 +56,7 @@ A modular, self-hostable Discord bot built around cryptocurrency utilities. Saan
 | `help`    | Browse all available commands                    |
 | `stats`   | View bot statistics and uptime                   |
 | `invite`  | Get the bot invite link and app install link     |
+| `ask`     | Ask an AI question with optional web search      |
 
 ### Crypto
 
@@ -129,6 +130,11 @@ CLIENT_ID=your_discord_client_id
 OWNER_IDS=your_discord_user_id
 MONGODB_URI=your_mongodb_connection_string
 TATUM_API_KEY=your_tatum_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
+ASK_MODEL=openrouter/auto
+ASK_WEB_ENGINE=
+ASK_WEB_MODE=
+ASK_WEB_MAX_RESULTS=3
 ```
 
 | Variable       | Required | Description                                        |
@@ -138,6 +144,11 @@ TATUM_API_KEY=your_tatum_api_key
 | `OWNER_IDS`    | Yes      | Comma-separated owner user IDs                     |
 | `MONGODB_URI`  | Yes      | MongoDB connection string                          |
 | `TATUM_API_KEY`| Yes      | Tatum API key for on-chain balance and tx lookups  |
+| `OPENROUTER_API_KEY`| No   | OpenRouter API key for the `/ask` command          |
+| `ASK_MODEL`    | No       | OpenRouter model slug used by `/ask`               |
+| `ASK_WEB_ENGINE`| No      | Optional OpenRouter web engine for `/ask web:true` |
+| `ASK_WEB_MODE` | No       | Optional mode for the selected web engine          |
+| `ASK_WEB_MAX_RESULTS`| No   | Max web results when `/ask web:true` is used       |
 
 **4. Register slash commands**
 

@@ -2,6 +2,10 @@ import 'dotenv/config';
 
 const environment = process.env.NODE_ENV || 'development';
 const isProduction = environment === 'production';
+const numberEnv = (value, fallback) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 export const config = {
         token: process.env.TOKEN || '',
@@ -24,6 +28,17 @@ export const config = {
 
         tatum: {
                 apiKey: process.env.TATUM_API_KEY || '',
+        },
+
+        openrouter: {
+                apiKey: process.env.OPENROUTER_API_KEY || '',
+                askModel: process.env.ASK_MODEL || 'openrouter/auto',
+                referer: process.env.OPENROUTER_REFERER || '',
+                title: process.env.OPENROUTER_TITLE || 'Saanvi',
+                webEngine: process.env.ASK_WEB_ENGINE || '',
+                webMode: process.env.ASK_WEB_MODE || '',
+                webMaxResults: numberEnv(process.env.ASK_WEB_MAX_RESULTS, 3),
+                maxTokens: numberEnv(process.env.ASK_MAX_TOKENS, 700),
         },
 
         database: {
