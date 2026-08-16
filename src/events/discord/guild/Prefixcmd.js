@@ -13,7 +13,14 @@ import { fileURLToPath } from 'url';
 import { config } from '#config';
 import { db } from '#dbManager';
 import { CommandContext } from '#context';
-import { validateCommand, canBotSendMessages, logger } from '#utils';
+import {
+        validateCommand,
+        canBotSendMessages,
+        canBypassPremium,
+        isOwner,
+        logger,
+        premiumPromptOptions,
+} from '#utils';
 import { emoji } from '#emoji';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -155,7 +162,7 @@ const parseOwnerBangPrefix = (content) => {
         if (!content?.startsWith('!')) return null;
         const parts = content.slice(1).trim().split(/\s+/);
         const commandName = parts[0]?.toLowerCase();
-        return commandName === 'pull' || commandName === 'sync'
+        return ['pull', 'sync', 'generate', 'revoke', 'redeem'].includes(commandName)
                 ? { parts, type: 'ownerBang', prefix: '!' }
                 : null;
 };
@@ -334,6 +341,15 @@ export default {
                                         }
                                 }
                                 return;
+                        }
+
+                        if (
+                                config.premium.enabled &&
+                                !canBypassPremium(command) &&
+                                !isOwner(message.author.id) &&
+                                !(await db.user.isPremium(message.author.id).catch(() => false))
+                        ) {
+                                return message.reply(premiumPromptOptions()).catch(() => {});
                         }
 
                         if (command.cooldown && client.commandHandler) {

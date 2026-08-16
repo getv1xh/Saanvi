@@ -20,4 +20,20 @@ export class UserService {
         async getAllAddresses(userId) {
                 return await this.repo.getAllAddresses(userId);
         }
+
+        async isPremium(userId) {
+                return await this.repo.isPremium(userId);
+        }
+
+        async getPremiumExpiresAt(userId) {
+                return await this.repo.getPremiumExpiresAt(userId);
+        }
+
+        async grantPremium(userId, durationMs) {
+                return await this.repo.grantPremium(userId, durationMs);
+        }
+
+        async revokePremium(userId) {
+                return await this.repo.revokePremium(userId);
+        }
 }

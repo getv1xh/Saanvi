@@ -57,6 +57,36 @@ export class UserRepository {
                 return user?.addresses ?? {};
         }
 
+        async getPremiumExpiresAt(userId) {
+                const user = await this.findById(userId);
+                return user?.premiumExpiresAt ?? null;
+        }
+
+        async isPremium(userId) {
+                const expiresAt = await this.getPremiumExpiresAt(userId);
+                return expiresAt ? new Date(expiresAt).getTime() > Date.now() : false;
+        }
+
+        async grantPremium(userId, durationMs) {
+                const user = await this.findOrCreate(userId);
+                const now = Date.now();
+                const current = user.premiumExpiresAt
+                        ? new Date(user.premiumExpiresAt).getTime()
+                        : 0;
+                const startsAt = Math.max(now, current);
+                const premiumExpiresAt = new Date(startsAt + durationMs);
+
+                await User.findByIdAndUpdate(userId, { $set: { premiumExpiresAt } });
+                await client.c.del(`${CACHE_PREFIX}${userId}`);
+
+                return premiumExpiresAt;
+        }
+
+        async revokePremium(userId) {
+                await User.findByIdAndUpdate(userId, { $set: { premiumExpiresAt: null } });
+                await client.c.del(`${CACHE_PREFIX}${userId}`);
+        }
+
         _normalise(doc) {
                 if (!doc) return null;
                 const { _id, __v, ...rest } = doc;

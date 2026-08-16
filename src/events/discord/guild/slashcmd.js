@@ -9,7 +9,14 @@ import {
         AttachmentBuilder,
 } from 'discord.js';
 import { config } from '#config';
-import { validateCommand, canBotSendMessages, logger } from '#utils';
+import {
+        validateCommand,
+        canBotSendMessages,
+        canBypassPremium,
+        isOwner,
+        logger,
+        premiumPromptOptions,
+} from '#utils';
 import { CommandContext } from '#context';
 import { db } from '#dbManager';
 import { emoji } from '#emoji';
@@ -230,6 +237,15 @@ const handleChatInputCommand = async (interaction, client) => {
                                 content: '**Ignored Channel** Commands are disabled in this channel.',
                                 flags: MessageFlags.Ephemeral,
                         }).catch(() => {});
+                }
+
+                if (
+                        config.premium.enabled &&
+                        !canBypassPremium(commandToExecute) &&
+                        !isOwner(userId) &&
+                        !(await db.user.isPremium(userId).catch(() => false))
+                ) {
+                        return respond(interaction, premiumPromptOptions()).catch(() => {});
                 }
 
                 const cooldownScope = guildId ?? userId;

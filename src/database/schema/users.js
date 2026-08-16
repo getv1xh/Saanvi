@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema(
                         of: String,
                         default: {},
                 },
+                premiumExpiresAt: { type: Date, default: null },
         },
         {
                 timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },

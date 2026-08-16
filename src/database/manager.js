@@ -2,6 +2,7 @@ import { initDatabase, closeDatabase } from '#db/mongo';
 import { GuildService } from '#dbServices/guilds';
 import { BlacklistService } from '#dbServices/blacklist';
 import { UserService } from '#dbServices/users';
+import { PremiumCodeService } from '#dbServices/premiumCodes';
 import { logger } from '#utils';
 
 export class DatabaseManager {
@@ -9,6 +10,7 @@ export class DatabaseManager {
                 this.guild = null;
                 this.blacklist = null;
                 this.user = null;
+                this.premiumCode = null;
                 this.initialized = false;
         }
 
@@ -25,6 +27,7 @@ export class DatabaseManager {
                         this.guild = new GuildService();
                         this.blacklist = new BlacklistService();
                         this.user = new UserService();
+                        this.premiumCode = new PremiumCodeService();
 
                         this.initialized = true;
                         logger.success('DatabaseManager', 'Databases initialized successfully');

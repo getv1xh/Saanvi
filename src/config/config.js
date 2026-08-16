@@ -22,6 +22,11 @@ export const config = {
         links: {
                 invite:  'https://discord.com/oauth2/authorize?client_id=1516858272814993469',
                 install: 'https://discord.com/oauth2/authorize?client_id=1516858272814993469&integration_type=1&scope=applications.commands',
+                premium: process.env.PREMIUM_URL || 'https://discord.gg/aerox',
+        },
+        premium: {
+                enabled: process.env.PREMIUM_ENABLED !== 'false',
+                pricing: process.env.PREMIUM_PRICING || '$3.99 / month',
         },
         watermark: 'developer credits: VEO @theveo.wtf',
         version: '2.0.0',

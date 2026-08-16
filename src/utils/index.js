@@ -9,3 +9,4 @@ export * from './price.js';
 export * from './chart.js';
 export * from './pullRestart.js';
 export * from './openrouter.js';
+export * from './premiumPrompt.js';

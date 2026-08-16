@@ -137,6 +137,9 @@ ASK_WEB_MODE=
 ASK_WEB_MAX_RESULTS=3
 SLASH_COMMAND_SCOPE=global
 SLASH_GUILD_ID=
+PREMIUM_ENABLED=true
+PREMIUM_URL=https://discord.gg/your-server
+PREMIUM_PRICING=$3.99 / month
 ```
 
 | Variable       | Required | Description                                        |
@@ -153,6 +156,9 @@ SLASH_GUILD_ID=
 | `ASK_WEB_MAX_RESULTS`| No   | Max web results when `/ask web:true` is used       |
 | `SLASH_COMMAND_SCOPE`| No   | `global` or `guild` slash command startup sync mode |
 | `SLASH_GUILD_ID`| No      | Guild ID used when slash command scope is `guild`  |
+| `PREMIUM_ENABLED`| No     | Set to `false` to disable the premium gate         |
+| `PREMIUM_URL` | No        | Link used by the Get Premium button                |
+| `PREMIUM_PRICING`| No     | Pricing text shown in the premium prompt           |
 
 **4. Register slash commands**
 
