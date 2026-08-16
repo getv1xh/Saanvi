@@ -206,7 +206,12 @@ const handleChatInputCommand = async (interaction, client) => {
                         );
                 }
 
-                if (!commandToExecute.shouldNotDefer) {
+                const shouldCheckPremium =
+                        config.premium.enabled &&
+                        !canBypassPremium(commandToExecute) &&
+                        !isOwner(userId);
+
+                if (!commandToExecute.shouldNotDefer || shouldCheckPremium) {
                         const deferred = await deferInteraction(interaction);
                         if (!deferred) return;
                 }
@@ -240,9 +245,7 @@ const handleChatInputCommand = async (interaction, client) => {
                 }
 
                 if (
-                        config.premium.enabled &&
-                        !canBypassPremium(commandToExecute) &&
-                        !isOwner(userId) &&
+                        shouldCheckPremium &&
                         !(await db.user.isPremium(userId).catch(() => false))
                 ) {
                         return respond(interaction, premiumPromptOptions()).catch(() => {});
