@@ -2,8 +2,6 @@ import { Command } from '#command';
 import {
         ApplicationCommandOptionType,
         ContainerBuilder,
-        SeparatorBuilder,
-        SeparatorSpacingSize,
         TextDisplayBuilder,
         MessageFlags,
 } from 'discord.js';
@@ -51,7 +49,7 @@ class AskCommand extends Command {
 
                 if (!question) {
                         return ctx.reply({
-                                components: [this._container('Ask', 'Please send a question for me to answer.')],
+                                components: [this._container('Please send a question for me to answer.')],
                                 flags: MessageFlags.IsComponentsV2,
                         });
                 }
@@ -61,7 +59,6 @@ class AskCommand extends Command {
                 await ctx.reply({
                         components: [
                                 this._container(
-                                        'Ask',
                                         `${LOADING_EMOJI} **Thinking...**`,
                                 ),
                         ],
@@ -75,7 +72,6 @@ class AskCommand extends Command {
                         return ctx.editReply({
                                 components: [
                                         this._container(
-                                                'Ask',
                                                 result.answer,
                                                 `generated in ${duration}`,
                                         ),
@@ -89,7 +85,6 @@ class AskCommand extends Command {
                         return ctx.editReply({
                                 components: [
                                         this._container(
-                                                'Ask failed',
                                                 error.message.includes('OPENROUTER_API_KEY')
                                                         ? '`OPENROUTER_API_KEY` is missing in the bot environment.'
                                                         : 'I could not get an answer from OpenRouter right now.',
@@ -101,25 +96,15 @@ class AskCommand extends Command {
                 }
         }
 
-        _container(title, body, footer = null) {
+        _container(body, footer = null) {
                 const container = new ContainerBuilder()
                         .setAccentColor(0xffffff)
-                        .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(`## ${title}`),
-                        )
-                        .addSeparatorComponents(
-                                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
-                        )
                         .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 
                 if (footer) {
-                        container
-                                .addSeparatorComponents(
-                                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
-                                )
-                                .addTextDisplayComponents(
-                                        new TextDisplayBuilder().setContent(`-# ${footer}`),
-                                );
+                        container.addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(`-# ${footer}`),
+                        );
                 }
 
                 return container;
