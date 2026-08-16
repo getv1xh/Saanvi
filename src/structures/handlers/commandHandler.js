@@ -301,6 +301,15 @@ export class CommandHandler {
         }
 
         /**
+         * Returns slash command payloads for guild registration.
+         * Guild commands cannot include global/user-install metadata.
+         * @returns {Object[]}
+         */
+        getGuildSlashCommandsData() {
+                return this.getSlashCommandsData().map(({ integration_types, contexts, ...cmd }) => cmd);
+        }
+
+        /**
          * Writes a cooldown entry to cache.
          * Also clears any existing cooldown-notified flag so the user can be notified again.
          * @param {import('#classes/Command').Command} command

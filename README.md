@@ -135,6 +135,8 @@ ASK_MODEL=openrouter/auto
 ASK_WEB_ENGINE=
 ASK_WEB_MODE=
 ASK_WEB_MAX_RESULTS=3
+SLASH_COMMAND_SCOPE=global
+SLASH_GUILD_ID=
 ```
 
 | Variable       | Required | Description                                        |
@@ -149,6 +151,8 @@ ASK_WEB_MAX_RESULTS=3
 | `ASK_WEB_ENGINE`| No      | Optional OpenRouter web engine for `/ask web:true` |
 | `ASK_WEB_MODE` | No       | Optional mode for the selected web engine          |
 | `ASK_WEB_MAX_RESULTS`| No   | Max web results when `/ask web:true` is used       |
+| `SLASH_COMMAND_SCOPE`| No   | `global` or `guild` slash command startup sync mode |
+| `SLASH_GUILD_ID`| No      | Guild ID used when slash command scope is `guild`  |
 
 **4. Register slash commands**
 

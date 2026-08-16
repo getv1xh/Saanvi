@@ -41,6 +41,11 @@ export const config = {
                 maxTokens: numberEnv(process.env.ASK_MAX_TOKENS, 700),
         },
 
+        slashCommands: {
+                guildId: process.env.SLASH_GUILD_ID || process.env.DEV_GUILD_ID || '',
+                scope: process.env.SLASH_COMMAND_SCOPE || (process.env.SLASH_GUILD_ID || process.env.DEV_GUILD_ID ? 'guild' : 'global'),
+        },
+
         database: {
                 url: process.env.MONGODB_URI || '',
         },
