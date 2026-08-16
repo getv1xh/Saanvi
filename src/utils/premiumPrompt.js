@@ -105,9 +105,10 @@ export const premiumPlanPayload = (plan, userId = '0') => {
                 : '<:rluser:1538556191897288835> **User Premium**';
         const features = isServer
                 ? [
-                        '> <:dots:1538555958228164759> Customise Saanvi as a assistant for ur server with ur server info',
-                        '> <:dots:1538555958228164759> Customise Saanvi profile picture for your server',
-                        '> <:dots:1538555958228164759> Server knowledge assistant: feed docs/info and Saanvi answers only relevant server questions',
+                        '> <:dots:1538555958228164759> Configure Saanvi as a custom assistant trained around your server info',
+                        '> <:dots:1538555958228164759> Custom server profile styling, including Saanvi profile picture setup',
+                        '> <:dots:1538555958228164759> Server knowledge base support for docs, FAQs, and project information',
+                        '> <:dots:1538555958228164759> Relevance-aware answers that respond only when the question matches your provided knowledge',
                 ]
                 : [
                         '> <:dots:1538555958228164759> Full access to Saanvi User commands',
