@@ -101,8 +101,8 @@ export const premiumPricingPayload = (userId = '0') => {
 export const premiumPlanPayload = (plan, userId = '0') => {
         const isServer = plan === 'server';
         const title = isServer
-                ? '<a:am_white_heart:1538556413121405048> **Server Premium**'
-                : '<:rluser:1538556191897288835> **User Premium**';
+                ? '<a:am_white_heart:1538556413121405048> | **Server Premium**'
+                : '<:rluser:1538556191897288835> | **User Premium**';
         const features = isServer
                 ? [
                         '> <:dots:1538555958228164759> Configure Saanvi as a custom assistant trained around your server info',
@@ -120,7 +120,7 @@ export const premiumPlanPayload = (plan, userId = '0') => {
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 `${title}\n` +
-                                `<:premium:1538553546352361572> **${config.premium.pricing}**\n\n` +
+                                `<:premium:1538553546352361572> | **${config.premium.pricing}**\n\n` +
                                 '**What you get**\n' +
                                 features.join('\n'),
                         ),
