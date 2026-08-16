@@ -18,7 +18,7 @@ const sendPullRestartConfirmation = async (client) => {
                 const channel = await client.channels.fetch(state.channelId);
                 if (!channel?.isTextBased?.()) return;
 
-                await channel.send('Done. Code pulled and PM2 restarted.');
+                await channel.send('<:Heart_Red:1538521542798082060> **DONE.** __**Code pulled and PM2 restarted.**__');
                 logger.success('Pull', `Restart confirmation sent to ${state.channelId}`);
         } catch (error) {
                 logger.error('Pull', 'Failed to send restart confirmation', error);
