@@ -6,6 +6,8 @@ import {
         MessageFlags,
         SeparatorBuilder,
         SeparatorSpacingSize,
+        StringSelectMenuBuilder,
+        StringSelectMenuOptionBuilder,
         TextDisplayBuilder,
 } from 'discord.js';
 import { config } from '#config';
@@ -138,6 +140,11 @@ export const premiumPlanPayload = (plan, userId = '0') => {
                                         .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'request', plan, userLabel(userId)))
                                         .setLabel('Request Exclusive Access')
                                         .setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder()
+                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'ask-support', plan, userLabel(userId)))
+                                        .setLabel('Ask Support')
+                                        .setStyle(ButtonStyle.Secondary)
+                                        .setDisabled(true),
                         ),
                 );
 
@@ -161,34 +168,43 @@ export const premiumPaymentPayload = (plan, userId = '0') => {
                 )
                 .addActionRowComponents(
                         new ActionRowBuilder().addComponents(
-                                new ButtonBuilder()
-                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'pay', plan, 'coingate', userLabel(userId)))
-                                        .setLabel('Coingate Gift Card')
-                                        .setEmoji(moneyEmoji)
-                                        .setStyle(ButtonStyle.Secondary),
-                                new ButtonBuilder()
-                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'pay', plan, 'usdt_pol', userLabel(userId)))
-                                        .setLabel('USDT POL')
-                                        .setEmoji(moneyEmoji)
-                                        .setStyle(ButtonStyle.Secondary),
+                                new StringSelectMenuBuilder()
+                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'payselect', plan, userLabel(userId)))
+                                        .setPlaceholder('Select a payment method')
+                                        .addOptions(
+                                                new StringSelectMenuOptionBuilder()
+                                                        .setLabel('Coingate Gift Card')
+                                                        .setValue('coingate')
+                                                        .setEmoji(moneyEmoji),
+                                                new StringSelectMenuOptionBuilder()
+                                                        .setLabel('USDT POL Chain')
+                                                        .setValue('usdt_pol')
+                                                        .setEmoji(moneyEmoji),
+                                                new StringSelectMenuOptionBuilder()
+                                                        .setLabel('USDT BEP20 Chain')
+                                                        .setValue('usdt_bep20')
+                                                        .setEmoji(moneyEmoji),
+                                                new StringSelectMenuOptionBuilder()
+                                                        .setLabel('Solana')
+                                                        .setValue('solana')
+                                                        .setEmoji(moneyEmoji),
+                                                new StringSelectMenuOptionBuilder()
+                                                        .setLabel('Litecoin')
+                                                        .setValue('litecoin')
+                                                        .setEmoji(moneyEmoji),
+                                        ),
                         ),
                 )
                 .addActionRowComponents(
                         new ActionRowBuilder().addComponents(
                                 new ButtonBuilder()
-                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'pay', plan, 'usdt_bep20', userLabel(userId)))
-                                        .setLabel('USDT BEP20')
-                                        .setEmoji(moneyEmoji)
+                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'payback', plan, userLabel(userId)))
+                                        .setLabel('Back')
                                         .setStyle(ButtonStyle.Secondary),
                                 new ButtonBuilder()
-                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'pay', plan, 'solana', userLabel(userId)))
-                                        .setLabel('Solana')
-                                        .setEmoji(moneyEmoji)
-                                        .setStyle(ButtonStyle.Secondary),
-                                new ButtonBuilder()
-                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'pay', plan, 'litecoin', userLabel(userId)))
-                                        .setLabel('Litecoin')
-                                        .setEmoji(moneyEmoji)
+                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'contact-support', plan, userLabel(userId)))
+                                        .setLabel('Contact Support')
+                                        .setEmoji({ name: 'CodeXSupport', id: '1538562574625407128' })
                                         .setStyle(ButtonStyle.Secondary),
                         ),
                 );

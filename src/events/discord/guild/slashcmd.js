@@ -541,8 +541,26 @@ const handlePremiumComponent = async (interaction) => {
                 return interaction.update(premiumPaymentPayload(plan, interaction.user.id));
         }
 
-        if (action === 'pay') {
-                const method = parts[3];
+        if (action === 'payback') {
+                return interaction.update(premiumPlanPayload(plan, interaction.user.id));
+        }
+
+        if (action === 'contact-support') {
+                return interaction.reply({
+                        content: 'Contact support will be available soon.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        if (action === 'payselect') {
+                const method = interaction.values?.[0];
+                if (!method) {
+                        return interaction.reply({
+                                content: 'Please select a payment method.',
+                                flags: MessageFlags.Ephemeral,
+                        });
+                }
+
                 const limitMessage = await enforcePremiumRequestLimit(interaction.client, interaction.user.id);
                 if (limitMessage) {
                         return interaction.reply({ content: limitMessage, flags: MessageFlags.Ephemeral });
@@ -566,7 +584,7 @@ const handlePremiumComponent = async (interaction) => {
 };
 
 const handleMessageComponent = async (interaction) => {
-        if (interaction.componentType !== ComponentType.Button) return;
+        if (![ComponentType.Button, ComponentType.StringSelect].includes(interaction.componentType)) return;
 
         if (interaction.customId === PREMIUM_PRICING_BUTTON_ID || interaction.customId.startsWith(`${PREMIUM_PRICING_BUTTON_ID}:`)) {
                 await handlePremiumPricingButton(interaction);
