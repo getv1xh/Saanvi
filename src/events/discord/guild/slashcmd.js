@@ -37,6 +37,11 @@ const errorSeparator = new SeparatorBuilder()
         .setDivider(true);
 const errorDescription = new TextDisplayBuilder();
 
+const publicEditOptions = (options) => ({
+        ...options,
+        flags: options.flags ? options.flags & ~MessageFlags.Ephemeral : options.flags,
+});
+
 const sendError = async (interaction, title, description, forceEphemeral = false) => {
         if (!interaction || !title || !description) return;
 
@@ -60,7 +65,9 @@ const sendError = async (interaction, title, description, forceEphemeral = false
 
                 const reply = { components: [errorContainer], flags };
 
-                if (interaction.deferred || interaction.replied) {
+                if (interaction.deferred) {
+                        await interaction.editReply(publicEditOptions(reply)).catch(() => {});
+                } else if (interaction.replied) {
                         await interaction.followUp(reply).catch(() => {});
                 } else {
                         await interaction.reply(reply).catch(() => {});
@@ -83,15 +90,27 @@ const sendCooldown = async (interaction, cooldown) => {
                 cooldownContainer.addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(content),
                 );
-                await interaction
-                        .reply({
-                                components: [cooldownContainer],
-                                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-                        })
-                        .catch(() => {});
+                const reply = {
+                        components: [cooldownContainer],
+                        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                };
+
+                if (interaction.deferred) {
+                        await interaction.editReply(publicEditOptions(reply)).catch(() => {});
+                } else if (interaction.replied) {
+                        await interaction.followUp(reply).catch(() => {});
+                } else {
+                        await interaction.reply(reply).catch(() => {});
+                }
         } catch (error) {
                 logger.error('InteractionCreate', `Failed to send cooldown: ${error.message}`);
         }
+};
+
+const respond = async (interaction, options) => {
+        if (interaction.deferred) return interaction.editReply(publicEditOptions(options));
+        if (interaction.replied) return interaction.followUp(options);
+        return interaction.reply(options);
 };
 
 const getCommandFile = (interaction, client) => {
@@ -148,6 +167,24 @@ const handleChatInputCommand = async (interaction, client) => {
                         );
                 }
 
+                const commandToExecute = getCommandFile(interaction, client);
+                if (!commandToExecute) {
+                        logger.warn(
+                                'InteractionCreate',
+                                `No command file found for: /${interaction.commandName}`,
+                        );
+                        return sendError(
+                                interaction,
+                                'Command Error',
+                                'This command seems to be outdated or improperly configured.',
+                                true,
+                        );
+                }
+
+                if (!interaction.deferred && !interaction.replied) {
+                        await interaction.deferReply();
+                }
+
                 let isUserBlacklisted  = false;
                 let isGuildBlacklisted = false;
                 let isChannelIgnored   = false;
@@ -163,35 +200,17 @@ const handleChatInputCommand = async (interaction, client) => {
                 }
 
                 if (isUserBlacklisted || isGuildBlacklisted) {
-                        return interaction
-                                .reply({
-                                        content: 'You or this server is blacklisted.',
-                                        flags: MessageFlags.Ephemeral,
-                                })
-                                .catch(() => {});
+                        return respond(interaction, {
+                                content: 'You or this server is blacklisted.',
+                                flags: MessageFlags.Ephemeral,
+                        }).catch(() => {});
                 }
 
                 if (isChannelIgnored) {
-                        return interaction
-                                .reply({
-                                        content: '**Ignored Channel** Commands are disabled in this channel.',
-                                        flags: MessageFlags.Ephemeral,
-                                })
-                                .catch(() => {});
-                }
-
-                const commandToExecute = getCommandFile(interaction, client);
-                if (!commandToExecute) {
-                        logger.warn(
-                                'InteractionCreate',
-                                `No command file found for: /${interaction.commandName}`,
-                        );
-                        return sendError(
-                                interaction,
-                                'Command Error',
-                                'This command seems to be outdated or improperly configured.',
-                                true,
-                        );
+                        return respond(interaction, {
+                                content: '**Ignored Channel** Commands are disabled in this channel.',
+                                flags: MessageFlags.Ephemeral,
+                        }).catch(() => {});
                 }
 
                 const cooldownScope = guildId ?? userId;
@@ -225,7 +244,6 @@ const handleChatInputCommand = async (interaction, client) => {
                         if (commandToExecute.shouldNotDefer) {
                                 await commandToExecute.execute({ ctx });
                         } else {
-                                await interaction.deferReply();
                                 await commandToExecute.execute({ ctx });
                         }
                 } catch (error) {
