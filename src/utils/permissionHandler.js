@@ -1,7 +1,7 @@
 import { PermissionFlagsBits } from 'discord.js';
 import { config } from '#config/config';
 
-const ownerSet = new Set(config.ownerIds || []);
+const ownerSet = new Set((config.ownerIds || []).map((id) => String(id).trim()).filter(Boolean));
 
 /** Maps permission flag bigints to human-readable names (e.g. `SendMessages`). */
 const permissionNames = new Map();

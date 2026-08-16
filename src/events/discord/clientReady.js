@@ -1,6 +1,29 @@
-import { logger } from '#utils';
+import { consumePullRestartState, logger } from '#utils';
 import { Routes } from 'discord-api-types/v10';
 import { config } from '#config';
+
+const sendPullRestartConfirmation = async (client) => {
+        let state = null;
+
+        try {
+                state = await consumePullRestartState();
+        } catch (error) {
+                logger.error('Pull', 'Failed to read pull restart state', error);
+                return;
+        }
+
+        if (!state) return;
+
+        try {
+                const channel = await client.channels.fetch(state.channelId);
+                if (!channel?.isTextBased?.()) return;
+
+                await channel.send('Done. Code pulled and PM2 restarted.');
+                logger.success('Pull', `Restart confirmation sent to ${state.channelId}`);
+        } catch (error) {
+                logger.error('Pull', 'Failed to send restart confirmation', error);
+        }
+};
 
 export default {
         name: 'clientReady',
@@ -24,6 +47,7 @@ export default {
                 setInterval(applyPresence, 45_000);
 
                 logger.info('Bot', `Serving ${client.guilds.cache.size} guilds`);
+                await sendPullRestartConfirmation(client);
 
                 const slashData = client.commandHandler.getSlashCommandsData();
 
