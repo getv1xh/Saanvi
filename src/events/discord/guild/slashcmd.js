@@ -180,6 +180,9 @@ const handleChatInputCommand = async (interaction, client) => {
                         );
                 }
 
+                const deferred = await deferInteraction(interaction);
+                if (!deferred) return;
+
                 const inGuild   = interaction.inGuild();
                 const userId    = interaction.user.id;
                 const guildId   = interaction.guild?.id ?? null;
@@ -212,11 +215,6 @@ const handleChatInputCommand = async (interaction, client) => {
                         config.premium.enabled &&
                         !canBypassPremium(commandToExecute) &&
                         !isOwner(userId);
-
-                if (!commandToExecute.shouldNotDefer || shouldCheckPremium) {
-                        const deferred = await deferInteraction(interaction);
-                        if (!deferred) return;
-                }
 
                 let isUserBlacklisted  = false;
                 let isGuildBlacklisted = false;
