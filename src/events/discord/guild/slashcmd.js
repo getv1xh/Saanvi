@@ -113,6 +113,24 @@ const respond = async (interaction, options) => {
         return interaction.reply(options);
 };
 
+const isUnknownInteraction = (error) =>
+        error?.code === 10062 || error?.rawError?.code === 10062;
+
+const deferInteraction = async (interaction) => {
+        if (!interaction || interaction.deferred || interaction.replied) return true;
+
+        try {
+                await interaction.deferReply();
+                return true;
+        } catch (error) {
+                if (isUnknownInteraction(error)) {
+                        logger.warn('InteractionCreate', `Interaction expired before defer: /${interaction.commandName}`);
+                        return false;
+                }
+                throw error;
+        }
+};
+
 const getCommandFile = (interaction, client) => {
         if (!interaction || !client || !client.commandHandler) return null;
 
@@ -181,8 +199,9 @@ const handleChatInputCommand = async (interaction, client) => {
                         );
                 }
 
-                if (!commandToExecute.shouldNotDefer && !interaction.deferred && !interaction.replied) {
-                        await interaction.deferReply();
+                if (!commandToExecute.shouldNotDefer) {
+                        const deferred = await deferInteraction(interaction);
+                        if (!deferred) return;
                 }
 
                 let isUserBlacklisted  = false;
@@ -243,6 +262,11 @@ const handleChatInputCommand = async (interaction, client) => {
                         }
                         await commandToExecute.execute({ ctx });
                 } catch (error) {
+                        if (isUnknownInteraction(error)) {
+                                logger.warn('InteractionCreate', `Interaction expired while executing: ${commandToExecute.slashData?.name || 'unknown'}`);
+                                return;
+                        }
+
                         logger.error(
                                 'InteractionCreate',
                                 `Error executing: ${commandToExecute.slashData?.name || 'unknown'}`,
@@ -256,6 +280,11 @@ const handleChatInputCommand = async (interaction, client) => {
                         );
                 }
         } catch (error) {
+                if (isUnknownInteraction(error)) {
+                        logger.warn('InteractionCreate', `Expired interaction ignored: /${interaction?.commandName || 'unknown'}`);
+                        return;
+                }
+
                 logger.error(
                         'InteractionCreate',
                         `Fatal error in command handler: ${error.message}`,
@@ -420,6 +449,10 @@ export default {
                                 await handleMessageComponent(interaction);
                         }
                 } catch (error) {
+                        if (isUnknownInteraction(error)) {
+                                logger.warn('InteractionCreate', 'Expired interaction ignored.');
+                                return;
+                        }
                         logger.error('InteractionCreate', `Fatal error: ${error.message}`, error);
                 }
         },
