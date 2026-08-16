@@ -181,7 +181,7 @@ const handleChatInputCommand = async (interaction, client) => {
                         );
                 }
 
-                if (!interaction.deferred && !interaction.replied) {
+                if (!commandToExecute.shouldNotDefer && !interaction.deferred && !interaction.replied) {
                         await interaction.deferReply();
                 }
 
@@ -241,11 +241,7 @@ const handleChatInputCommand = async (interaction, client) => {
                                         true,
                                 );
                         }
-                        if (commandToExecute.shouldNotDefer) {
-                                await commandToExecute.execute({ ctx });
-                        } else {
-                                await commandToExecute.execute({ ctx });
-                        }
+                        await commandToExecute.execute({ ctx });
                 } catch (error) {
                         logger.error(
                                 'InteractionCreate',
