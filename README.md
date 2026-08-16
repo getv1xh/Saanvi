@@ -135,6 +135,8 @@ ASK_MODEL=openrouter/auto
 ASK_WEB_ENGINE=
 ASK_WEB_MODE=
 ASK_WEB_MAX_RESULTS=3
+DEV_SYNC_COMMAND=rsync_or_ssh_command_for_syncing_to_dev_server
+SYNC_TIMEOUT_MS=120000
 ```
 
 | Variable       | Required | Description                                        |
@@ -149,6 +151,8 @@ ASK_WEB_MAX_RESULTS=3
 | `ASK_WEB_ENGINE`| No      | Optional OpenRouter web engine for `/ask web:true` |
 | `ASK_WEB_MODE` | No       | Optional mode for the selected web engine          |
 | `ASK_WEB_MAX_RESULTS`| No   | Max web results when `/ask web:true` is used       |
+| `DEV_SYNC_COMMAND`| No     | Shell command run by owner-only `.sync` / `!sync`  |
+| `SYNC_TIMEOUT_MS`| No      | Timeout for the sync command in milliseconds       |
 
 **4. Register slash commands**
 

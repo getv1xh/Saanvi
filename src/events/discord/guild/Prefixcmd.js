@@ -151,10 +151,13 @@ const parseGuildPrefix = async (content, guildId, guildPrefixes) => {
         }
 };
 
-const parseOwnerPullPrefix = (content) => {
-        if (!content?.toLowerCase().startsWith('!pull')) return null;
+const parseOwnerBangPrefix = (content) => {
+        if (!content?.startsWith('!')) return null;
         const parts = content.slice(1).trim().split(/\s+/);
-        return parts[0]?.toLowerCase() === 'pull' ? { parts, type: 'ownerPull', prefix: '!' } : null;
+        const commandName = parts[0]?.toLowerCase();
+        return commandName === 'pull' || commandName === 'sync'
+                ? { parts, type: 'ownerBang', prefix: '!' }
+                : null;
 };
 
 const parseCommand = async (message, client, guildPrefixes) => {
@@ -164,7 +167,7 @@ const parseCommand = async (message, client, guildPrefixes) => {
                 return (
                         parseMentionPrefix(content, client.user?.id) ||
                         (await parseGuildPrefix(content, message.guild?.id, guildPrefixes)) ||
-                        parseOwnerPullPrefix(content)
+                        parseOwnerBangPrefix(content)
                 );
         } catch {
                 return null;
