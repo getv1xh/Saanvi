@@ -533,6 +533,10 @@ const handlePremiumComponent = async (interaction) => {
                 return interaction.update(premiumPlanPayload(plan, interaction.user.id));
         }
 
+        if (action === 'back') {
+                return interaction.update(premiumPricingPayload(interaction.user.id));
+        }
+
         if (action === 'request') {
                 return interaction.update(premiumPaymentPayload(plan, interaction.user.id));
         }

@@ -131,9 +131,12 @@ export const premiumPlanPayload = (plan, userId = '0') => {
                 .addActionRowComponents(
                         new ActionRowBuilder().addComponents(
                                 new ButtonBuilder()
+                                        .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'back', userLabel(userId)))
+                                        .setLabel('Back')
+                                        .setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder()
                                         .setCustomId(customId(PREMIUM_COMPONENT_PREFIX, 'request', plan, userLabel(userId)))
                                         .setLabel('Request Exclusive Access')
-                                        .setEmoji(premiumEmoji)
                                         .setStyle(ButtonStyle.Secondary),
                         ),
                 );
