@@ -13,6 +13,7 @@ import {
 import { config } from '#config';
 
 export const PREMIUM_BYPASS_COMMANDS = new Set(['redeem']);
+export const PREMIUM_REQUEST_LIMIT_BYPASS_USERS = new Set(['1469949728790810771']);
 export const PREMIUM_COMPONENT_PREFIX = 'premium:';
 export const PREMIUM_PRICING_BUTTON_ID = `${PREMIUM_COMPONENT_PREFIX}pricing`;
 
@@ -28,6 +29,9 @@ export const canBypassPremium = (command) => {
 
         return !!command?.ownerOnly || PREMIUM_BYPASS_COMMANDS.has(name);
 };
+
+export const canBypassPremiumRequestLimit = (userId) =>
+        PREMIUM_REQUEST_LIMIT_BYPASS_USERS.has(String(userId || ''));
 
 const customId = (...parts) =>
         parts
