@@ -7,6 +7,10 @@ import {
         SeparatorSpacingSize,
         MessageFlags,
         AttachmentBuilder,
+        EmbedBuilder,
+        ActionRowBuilder,
+        ButtonBuilder,
+        ButtonStyle,
 } from 'discord.js';
 import { config } from '#config';
 import {
@@ -472,6 +476,9 @@ const planLabels = {
         server: 'Server Premium',
 };
 
+const followUpCustomId = (action, userId, plan, method) =>
+        ['premium', action, userId, plan, method].filter(Boolean).join(':');
+
 const enforcePremiumRequestLimit = async (client, userId) => {
         const cooldownKey = `premium:req:cooldown:${userId}`;
         const dayKey = `premium:req:day:${userId}`;
@@ -492,21 +499,48 @@ const enforcePremiumRequestLimit = async (client, userId) => {
 };
 
 const notifyOwnersOfPremiumRequest = async (interaction, plan, method) => {
-        const guildLine = interaction.guild
-                ? `**Server:** ${interaction.guild.name} (\`${interaction.guild.id}\`)`
-                : '**Server:** User app / DM context';
-        const content =
-                '<:premium:1538553546352361572> **Premium Access Request**\n' +
-                `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n` +
-                `${guildLine}\n` +
-                `**Plan:** ${planLabels[plan] || plan}\n` +
-                `**Payment:** ${paymentLabels[method] || method}`;
+        const serverValue = interaction.guild
+                ? `${interaction.guild.name} (\`${interaction.guild.id}\`)`
+                : 'User app / DM context';
+        const embed = new EmbedBuilder()
+                .setColor(0xffffff)
+                .setTitle('Premium Access Request')
+                .setDescription('<:premium:1538553546352361572> A user requested premium access.')
+                .addFields(
+                        {
+                                name: 'User',
+                                value: `${interaction.user.tag} (\`${interaction.user.id}\`)`,
+                                inline: false,
+                        },
+                        {
+                                name: 'Server',
+                                value: serverValue,
+                                inline: false,
+                        },
+                        {
+                                name: 'Plan',
+                                value: planLabels[plan] || plan,
+                                inline: true,
+                        },
+                        {
+                                name: 'Payment',
+                                value: paymentLabels[method] || method,
+                                inline: true,
+                        },
+                )
+                .setTimestamp();
+        const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                        .setCustomId(followUpCustomId('followuser', interaction.user.id, plan, method))
+                        .setLabel('Follow Up')
+                        .setStyle(ButtonStyle.Secondary),
+        );
 
         let sent = 0;
         for (const ownerId of config.ownerIds || []) {
                 try {
                         const owner = await interaction.client.users.fetch(ownerId);
-                        await owner.send(content);
+                        await owner.send({ embeds: [embed], components: [row] });
                         sent++;
                 } catch (error) {
                         logger.warn('Premium', `Failed to DM owner ${ownerId}: ${error.message}`);
@@ -516,11 +550,132 @@ const notifyOwnersOfPremiumRequest = async (interaction, plan, method) => {
         return sent;
 };
 
+const notifyUserPremiumFollowUp = async (interaction, userId, plan, method) => {
+        if (!isOwner(interaction.user.id)) {
+                return interaction.deferUpdate().catch(() => {});
+        }
+
+        const target = await interaction.client.users.fetch(userId).catch(() => null);
+        if (!target) {
+                return interaction.reply({
+                        content: 'Could not find that user.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const embed = new EmbedBuilder()
+                .setColor(0xffffff)
+                .setTitle('Premium Request Follow Up')
+                .setDescription(
+                        'Your premium request has been reviewed. Please keep your payment method ready and wait for the owner to share the final payment details.',
+                )
+                .addFields(
+                        {
+                                name: 'Plan',
+                                value: planLabels[plan] || plan,
+                                inline: true,
+                        },
+                        {
+                                name: 'Payment',
+                                value: paymentLabels[method] || method,
+                                inline: true,
+                        },
+                )
+                .setTimestamp();
+        const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                        .setCustomId(followUpCustomId('followowners', userId, plan, method))
+                        .setLabel('Follow Up')
+                        .setStyle(ButtonStyle.Secondary),
+        );
+
+        try {
+                await target.send({ embeds: [embed], components: [row] });
+        } catch (error) {
+                logger.warn('Premium', `Failed to DM premium follow up to ${userId}: ${error.message}`);
+                return interaction.reply({
+                        content: 'Could not DM that user. They may have DMs closed.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.reply({
+                content: `Follow up sent to ${target.tag}.`,
+                flags: MessageFlags.Ephemeral,
+        });
+};
+
+const notifyOwnersPremiumFollowUp = async (interaction, userId, plan, method) => {
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This follow up belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const embed = new EmbedBuilder()
+                .setColor(0xffffff)
+                .setTitle('Premium Follow Up')
+                .setDescription('The user clicked follow up from their premium request DM.')
+                .addFields(
+                        {
+                                name: 'User',
+                                value: `${interaction.user.tag} (\`${interaction.user.id}\`)`,
+                                inline: false,
+                        },
+                        {
+                                name: 'Plan',
+                                value: planLabels[plan] || plan,
+                                inline: true,
+                        },
+                        {
+                                name: 'Payment',
+                                value: paymentLabels[method] || method,
+                                inline: true,
+                        },
+                )
+                .setTimestamp();
+        const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                        .setCustomId(followUpCustomId('followuser', userId, plan, method))
+                        .setLabel('Follow Up')
+                        .setStyle(ButtonStyle.Secondary),
+        );
+
+        let sent = 0;
+        for (const ownerId of config.ownerIds || []) {
+                try {
+                        const owner = await interaction.client.users.fetch(ownerId);
+                        await owner.send({ embeds: [embed], components: [row] });
+                        sent++;
+                } catch (error) {
+                        logger.warn('Premium', `Failed to DM owner ${ownerId}: ${error.message}`);
+                }
+        }
+
+        return interaction.reply({
+                content: sent > 0
+                        ? 'Follow up sent to the owner.'
+                        : 'Could not DM the owner. Please contact support manually.',
+                flags: MessageFlags.Ephemeral,
+        });
+};
+
 const handlePremiumComponent = async (interaction) => {
         const parts = interaction.customId.split(':');
         const action = parts[1];
         const plan = parts[2];
         const ownerId = parts.at(-1);
+
+        if (action === 'followuser') {
+                const [, , userId, followPlan, method] = parts;
+                return notifyUserPremiumFollowUp(interaction, userId, followPlan, method);
+        }
+
+        if (action === 'followowners') {
+                const [, , userId, followPlan, method] = parts;
+                return notifyOwnersPremiumFollowUp(interaction, userId, followPlan, method);
+        }
 
         if (ownerId && ownerId !== '0' && ownerId !== interaction.user.id) {
                 return interaction.reply({
