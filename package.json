@@ -1,8 +1,9 @@
 {
-  "name": "discord-bot-handler",
+  "name": "saanvi",
   "version": "1.1.0",
-  "description": "A versatile Discord.js bot handler",
+  "description": "Saanvi, a modular cryptocurrency utility Discord bot",
   "type": "module",
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "start": "node src/bot.js",
     "format": "prettier --write \"src/**/*.js\""
@@ -34,12 +35,14 @@
     "sharding",
     "modular"
   ],
-  "author": "Bre4d777",
-  "license": "MIT",
+  "author": "VEO @theveo.wtf",
+  "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
+    "@discordjs/rest": "^2.6.3",
     "@napi-rs/canvas": "^1.0.0",
     "chart.js": "^4.5.1",
     "chartjs-node-canvas": "^5.0.0",
+    "discord-api-types": "^0.38.53",
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.4",
     "fs-extra": "^11.3.3",

@@ -65,7 +65,7 @@ class PullCommand extends Command {
 
                 if (code === 0) {
                         await clearPullRestartState();
-                        return ctx.reply('Done. Code pulled and PM2 restarted.');
+                        return ctx.reply('<:Heart_Red:1538521542798082060> **DONE.** __**Code pulled and PM2 restarted.**__');
                 }
 
                 await clearPullRestartState();

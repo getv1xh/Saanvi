@@ -1,12 +1,9 @@
 import {
         ContainerBuilder,
         TextDisplayBuilder,
-        ButtonBuilder,
-        ButtonStyle,
         MessageFlags,
         SeparatorBuilder,
         SeparatorSpacingSize,
-        ActionRowBuilder,
         MediaGalleryBuilder,
         MediaGalleryItemBuilder,
         AttachmentBuilder,
@@ -47,12 +44,6 @@ const mentionSeparator = new SeparatorBuilder()
         .setSpacing(SeparatorSpacingSize.Small)
         .setDivider(true);
 const mentionContent = new TextDisplayBuilder();
-const mentionButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-                .setLabel('Support')
-                .setURL(config.links?.supportServer || 'https://discord.gg')
-                .setStyle(ButtonStyle.Link),
-);
 
 const sendDM = async (user, title, description, client) => {
         if (!user || !title || !description || !client) return false;
@@ -200,7 +191,7 @@ const handleMentionOnly = async (message, client, guildPrefixes) => {
                 mentionContainer.components.length = 0;
                 mentionContainer.setAccentColor(0xffffff);
                 mentionContent.data.content =
-                        `${emoji?.string || ''} **Bot Supports** → \`/\`\n` +
+                        `${emoji?.string || ''} **Saanvi uses** → \`/\`\n` +
                         `-# For seeing all commands \`/help\``;
                 mentionContainer
                         .addMediaGalleryComponents(
@@ -208,8 +199,7 @@ const handleMentionOnly = async (message, client, guildPrefixes) => {
                                         new MediaGalleryItemBuilder().setURL('attachment://help_banner.png'),
                                 ),
                         )
-                        .addTextDisplayComponents(mentionContent)
-                        .addActionRowComponents(mentionButtons);
+                        .addTextDisplayComponents(mentionContent);
 
                 await message
                         .reply({

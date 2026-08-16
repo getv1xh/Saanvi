@@ -15,13 +15,13 @@ class InviteCommand extends Command {
 	constructor() {
 		super({
 			name: 'invite',
-			description: 'Invite Flake to your server or install as an app',
+			description: 'Invite Saanvi to your server or install as an app',
 			cooldown: 5,
 			enabledSlash: true,
 			shouldNotDefer: true,
 			slashData: {
 				name: 'invite',
-				description: 'Invite Flake to your server or install as an app',
+				description: 'Invite Saanvi to your server or install as an app',
 			},
 		});
 	}
@@ -31,7 +31,7 @@ class InviteCommand extends Command {
 			.setAccentColor(0xffffff)
 			.addTextDisplayComponents(
 				new TextDisplayBuilder().setContent(
-					'## Invite Me\n-# Use the buttons below to invite me to your server or install me as an application',
+					'## Invite Saanvi\n-# Use the buttons below to invite me to your server or install me as an application',
 				),
 			)
 			.addSeparatorComponents(

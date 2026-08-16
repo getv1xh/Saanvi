@@ -239,14 +239,17 @@ export const validateCommand = async (ctx, command) => {
                         };
                 }
 
-                let member;
-                try {
-                        member = await guild.members.fetch(user.id);
-                } catch {
-                        return {
-                                valid: false,
-                                error: { title: 'Member Not Found', description: 'Could not fetch your member data.' },
-                        };
+                let member = ctx.interaction?.member || ctx.message?.member || null;
+
+                if (!member && guild.members?.fetch) {
+                        try {
+                                member = await guild.members.fetch(user.id);
+                        } catch {
+                                return {
+                                        valid: false,
+                                        error: { title: 'Member Not Found', description: 'Could not fetch your member data.' },
+                                };
+                        }
                 }
 
                 if (!member) {

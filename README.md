@@ -1,6 +1,6 @@
-# Flake
+# Saanvi
 
-A modular, self-hostable Discord bot built around cryptocurrency utilities. Flake provides live price tracking, on-chain balance lookups, transaction inspection, and payment profile management — all served through a clean Discord.js v14 interface with Components V2 UI.
+A modular, self-hostable Discord bot built around cryptocurrency utilities. Saanvi provides live price tracking, on-chain balance lookups, transaction inspection, and payment profile management — all served through a clean Discord.js v14 interface with Components V2 UI.
 
 ---
 
@@ -56,7 +56,6 @@ A modular, self-hostable Discord bot built around cryptocurrency utilities. Flak
 | `help`    | Browse all available commands                    |
 | `stats`   | View bot statistics and uptime                   |
 | `invite`  | Get the bot invite link and app install link     |
-| `support` | Get a link to the support server                 |
 
 ### Crypto
 
@@ -110,14 +109,14 @@ A modular, self-hostable Discord bot built around cryptocurrency utilities. Flak
 **1. Clone the repository**
 
 ```bash
-git clone https://github.com/itsfizys/Flake.git
-cd Flake
+git clone <your-saanvi-repository-url>
+cd Saanvi
 ```
 
 **2. Install dependencies**
 
 ```bash
-npm install
+pnpm install
 ```
 
 **3. Configure environment variables**
@@ -147,7 +146,7 @@ Slash commands are registered automatically on bot startup.
 **5. Start the bot**
 
 ```bash
-npm start
+pnpm start
 ```
 
 ---
@@ -155,7 +154,7 @@ npm start
 ## File Structure
 
 ```
-Flake/
+Saanvi/
 ├── src/
 │   ├── bot.js                          # Entry point, shutdown handling
 │   ├── assets/
@@ -183,7 +182,6 @@ Flake/
 │   │       ├── setpaypal.js           # Save PayPal username
 │   │       ├── setupi.js              # Save UPI ID
 │   │       ├── stats.js               # Bot statistics
-│   │       ├── support.js             # Support server link
 │   │       ├── tx.js                  # Transaction lookup
 │   │       └── upi.js                 # View saved UPI
 │   ├── config/
@@ -242,15 +240,7 @@ Flake/
 
 ## Credits
 
-Developed by **[itsfizys](https://github.com/itsfizys)**.
-
----
-
-## Support
-
-Join the **AeroX Development** server for help, updates, and feedback.
-
-**https://discord.gg/aerox**
+Developer credits: **VEO @theveo.wtf**.
 
 ---
 
