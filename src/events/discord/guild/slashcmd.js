@@ -663,6 +663,7 @@ const FOLLOW_UP_MESSAGE_INPUT_ID = 'premium_follow_up_message';
 const PREMIUM_SUPPORT_MESSAGE_INPUT_ID = 'premium_support_message';
 const DOTS_EMOJI = '<:dots:1538555958228164759>';
 const CHAT_EMOJI = '<a:CHAT:1538828248308387896>';
+const LOADING_EMOJI = '<a:loading:1538534708739051562>';
 
 const premiumCustomId = (...parts) =>
         ['premium', ...parts].filter(Boolean).join(':');
