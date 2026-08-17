@@ -38,6 +38,7 @@ export const config = {
         openrouter: {
                 apiKey: process.env.OPENROUTER_API_KEY || '',
                 askModel: process.env.ASK_MODEL || 'openrouter/auto',
+                askWebModel: process.env.ASK_WEB_MODEL || '',
                 referer: process.env.OPENROUTER_REFERER || '',
                 title: process.env.OPENROUTER_TITLE || 'Saanvi',
                 webEngine: process.env.ASK_WEB_ENGINE || '',

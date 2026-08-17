@@ -2,6 +2,8 @@
 !.gitignore
 !LICENSE
 !package.json
+!PRIVACY_POLICY.md
+!TERMS_OF_SERVICE.md
 !src/
 !src/**
 !*.yml

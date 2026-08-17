@@ -14,6 +14,22 @@ const formatDuration = (ms) => {
         return `${(ms / 1000).toFixed(1)}s`;
 };
 
+const openRouterErrorMessage = (error) => {
+        if (error.message.includes('OPENROUTER_API_KEY')) {
+                return '`OPENROUTER_API_KEY` is missing in the bot environment.';
+        }
+
+        if (error.status === 403 && /limit exceeded/i.test(error.message)) {
+                return 'OpenRouter rejected the request because the API key limit has been exceeded.';
+        }
+
+        if (error.status === 429) {
+                return 'OpenRouter or the selected model is rate-limited right now. Try again later or use a different `/ask` model.';
+        }
+
+        return 'I could not get an answer from OpenRouter right now.';
+};
+
 class AskCommand extends Command {
         constructor() {
                 super({
@@ -85,9 +101,7 @@ class AskCommand extends Command {
                         return ctx.editReply({
                                 components: [
                                         this._container(
-                                                error.message.includes('OPENROUTER_API_KEY')
-                                                        ? '`OPENROUTER_API_KEY` is missing in the bot environment.'
-                                                        : 'I could not get an answer from OpenRouter right now.',
+                                                openRouterErrorMessage(error),
                                                 `failed after ${duration}`,
                                         ),
                                 ],
