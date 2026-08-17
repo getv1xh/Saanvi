@@ -90,7 +90,13 @@ const addWebTool = (body) => {
         body.max_tool_calls = 2;
 };
 
-const createRequestBody = ({ model, question, useWeb = false, webMode = 'tool' }) => {
+const createRequestBody = ({
+        model,
+        question,
+        messages,
+        useWeb = false,
+        webMode = 'tool',
+}) => {
         const body = {
                 model,
                 max_tokens: config.openrouter.maxTokens,
@@ -102,10 +108,14 @@ const createRequestBody = ({ model, question, useWeb = false, webMode = 'tool' }
                                         'You are Saanvi, a cute but useful Discord utility bot. Answer clearly and briefly. ' +
                                         'If current internet knowledge is required and web search is not enabled, say that web search should be enabled instead of guessing.',
                         },
-                        {
-                                role: 'user',
-                                content: question,
-                        },
+                        ...(Array.isArray(messages) && messages.length
+                                ? messages
+                                : [
+                                          {
+                                                  role: 'user',
+                                                  content: question,
+                                          },
+                                  ]),
                 ],
         };
 
@@ -144,7 +154,7 @@ const requestOpenRouter = async ({ headers, body }) => {
         return data;
 };
 
-export const askOpenRouter = async ({ question, useWeb = false }) => {
+export const askOpenRouter = async ({ question, messages, useWeb = false }) => {
         const apiKey = config.openrouter.apiKey;
         const model = useWeb
                 ? config.openrouter.askWebModel || config.openrouter.askModel
@@ -166,6 +176,7 @@ export const askOpenRouter = async ({ question, useWeb = false }) => {
         const body = createRequestBody({
                 model,
                 question,
+                messages,
                 useWeb,
                 webMode,
         });
@@ -184,6 +195,7 @@ export const askOpenRouter = async ({ question, useWeb = false }) => {
                         body: createRequestBody({
                                 model,
                                 question,
+                                messages,
                                 useWeb,
                                 webMode: 'plugin',
                         }),

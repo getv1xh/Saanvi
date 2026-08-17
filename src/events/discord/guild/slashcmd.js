@@ -36,6 +36,16 @@ import {
         SUPPORT_REPLY_MODAL_PREFIX,
         SUPPORT_REPLY_PREFIX,
         SUPPORT_TICKET_TTL_SECONDS,
+        ASK_REPLY_MESSAGE_INPUT_ID,
+        ASK_REPLY_MODAL_PREFIX,
+        ASK_REPLY_PREFIX,
+        askConversationKey,
+        askReplyModal,
+        askResponsePayload,
+        askOpenRouter,
+        parseStoredAskConversation,
+        scheduleAskReplyButtonRemoval,
+        storeAskConversation,
         createSupportTicketId,
         supportActiveKey,
         supportAlreadyOpenPayload,
@@ -646,6 +656,152 @@ const quoteBlock = (value) =>
                 .split('\n')
                 .map((line) => `> ${line || ' '}`)
                 .join('\n');
+
+const formatAskDuration = (ms) => {
+        if (ms < 1000) return `${ms}ms`;
+        return `${(ms / 1000).toFixed(1)}s`;
+};
+
+const askOpenRouterErrorMessage = (error) => {
+        if (error.message.includes('OPENROUTER_API_KEY')) {
+                return '`OPENROUTER_API_KEY` is missing in the bot environment.';
+        }
+
+        if (error.status === 403 && /limit exceeded/i.test(error.message)) {
+                return 'OpenRouter rejected the request because the API key limit has been exceeded.';
+        }
+
+        if (error.status === 429) {
+                return 'OpenRouter or the selected model is rate-limited right now. Try again later or use a different `/ask` model.';
+        }
+
+        return 'I could not get an answer from OpenRouter right now.';
+};
+
+const parseAskReplyParts = (customId) => {
+        const [, action, conversationId, userId] = customId.split(':');
+        if (action !== 'reply' && action !== 'replymodal') return null;
+        return { action, conversationId, userId };
+};
+
+const showAskReplyModal = async (interaction) => {
+        const parts = parseAskReplyParts(interaction.customId);
+        if (!parts || parts.action !== 'reply') return;
+
+        const { conversationId, userId } = parts;
+
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This ask reply belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const conversation = parseStoredAskConversation(
+                await interaction.client.c.get(
+                        askConversationKey(conversationId),
+                ),
+        );
+
+        if (!conversation) {
+                return interaction.reply({
+                        content: 'This ask conversation has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.showModal(askReplyModal(conversationId, userId));
+};
+
+const handleAskReplyModal = async (interaction) => {
+        const parts = parseAskReplyParts(interaction.customId);
+        if (!parts || parts.action !== 'replymodal') return;
+
+        const { conversationId, userId } = parts;
+
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This ask reply belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const message = interaction.fields
+                .getTextInputValue(ASK_REPLY_MESSAGE_INPUT_ID)
+                ?.trim();
+        if (!message) {
+                return interaction.reply({
+                        content: 'Please enter a reply.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const conversation = parseStoredAskConversation(
+                await interaction.client.c.get(
+                        askConversationKey(conversationId),
+                ),
+        );
+
+        if (!conversation || conversation.userId !== userId) {
+                return interaction.reply({
+                        content: 'This ask conversation has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const startedAt = Date.now();
+        await interaction.deferReply();
+
+        try {
+                const messages = [
+                        ...(conversation.messages || []),
+                        { role: 'user', content: message },
+                ];
+                const result = await askOpenRouter({
+                        messages,
+                        useWeb: !!conversation.useWeb,
+                });
+                const duration = formatAskDuration(Date.now() - startedAt);
+                const payloadOptions = {
+                        body: result.answer,
+                        footer: `reply generated in ${duration}`,
+                        conversationId,
+                        userId,
+                        includeReplyButton: true,
+                };
+
+                await storeAskConversation(interaction.client, conversationId, {
+                        ...conversation,
+                        messages: [
+                                ...messages,
+                                {
+                                        role: 'assistant',
+                                        content: result.answer,
+                                },
+                        ],
+                });
+
+                const reply = await interaction.editReply(
+                        askResponsePayload(payloadOptions),
+                );
+                scheduleAskReplyButtonRemoval(reply, payloadOptions);
+                return reply;
+        } catch (error) {
+                logger.error(
+                        'Ask',
+                        `OpenRouter follow-up failed: ${error.message}`,
+                        error,
+                );
+                const duration = formatAskDuration(Date.now() - startedAt);
+
+                return interaction.editReply(
+                        askResponsePayload({
+                                body: askOpenRouterErrorMessage(error),
+                                footer: `failed after ${duration}`,
+                        }),
+                );
+        }
+};
 
 const followUpButton = (route, userId, plan, method) =>
         new ButtonBuilder()
@@ -1627,6 +1783,8 @@ const handleMessageComponent = async (interaction) => {
                 await handleSupportCategorySelect(interaction);
         } else if (interaction.customId.startsWith(SUPPORT_REPLY_PREFIX)) {
                 await showSupportReplyModal(interaction);
+        } else if (interaction.customId.startsWith(ASK_REPLY_PREFIX)) {
+                await showAskReplyModal(interaction);
         } else if (interaction.customId.startsWith(SUPPORT_CLOSE_PREFIX)) {
                 await handleSupportCloseButton(interaction);
         } else if (interaction.customId.startsWith('addy_qr:')) {
@@ -1691,6 +1849,12 @@ export default {
                                         await handleSupportReplyModal(
                                                 interaction,
                                         );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                ASK_REPLY_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleAskReplyModal(interaction);
                                 } else if (
                                         interaction.customId.startsWith(
                                                 SUPPORT_MODAL_PREFIX,

@@ -1,11 +1,13 @@
 import { Command } from '#command';
+import { ApplicationCommandOptionType, MessageFlags } from 'discord.js';
 import {
-        ApplicationCommandOptionType,
-        ContainerBuilder,
-        TextDisplayBuilder,
-        MessageFlags,
-} from 'discord.js';
-import { askOpenRouter, logger } from '#utils';
+        askOpenRouter,
+        askResponsePayload,
+        createAskConversationId,
+        logger,
+        scheduleAskReplyButtonRemoval,
+        storeAskConversation,
+} from '#utils';
 
 const LOADING_EMOJI = '<a:loading:1538534708739051562>';
 
@@ -44,14 +46,16 @@ class AskCommand extends Command {
                                         {
                                                 type: ApplicationCommandOptionType.String,
                                                 name: 'question',
-                                                description: 'What should Saanvi answer?',
+                                                description:
+                                                        'What should Saanvi answer?',
                                                 required: true,
                                                 max_length: 1000,
                                         },
                                         {
                                                 type: ApplicationCommandOptionType.Boolean,
                                                 name: 'web',
-                                                description: 'Use web search for current info. This may use OpenRouter credits.',
+                                                description:
+                                                        'Use web search for current info. This may use OpenRouter credits.',
                                                 required: false,
                                         },
                                 ],
@@ -64,64 +68,71 @@ class AskCommand extends Command {
                 const useWeb = ctx.options.getBoolean('web') ?? false;
 
                 if (!question) {
-                        return ctx.reply({
-                                components: [this._container('Please send a question for me to answer.')],
-                                flags: MessageFlags.IsComponentsV2,
-                        });
+                        return ctx.reply(
+                                askResponsePayload({
+                                        body: 'Please send a question for me to answer.',
+                                }),
+                        );
                 }
 
                 const startedAt = Date.now();
 
                 await ctx.reply({
                         components: [
-                                this._container(
-                                        `${LOADING_EMOJI} **Thinking...**`,
-                                ),
+                                askResponsePayload({
+                                        body: `${LOADING_EMOJI} **Thinking...**`,
+                                }).components[0],
                         ],
                         flags: MessageFlags.IsComponentsV2,
                 });
 
                 try {
-                        const result = await askOpenRouter({ question, useWeb });
-                        const duration = formatDuration(Date.now() - startedAt);
-
-                        return ctx.editReply({
-                                components: [
-                                        this._container(
-                                                result.answer,
-                                                `generated in ${duration}`,
-                                        ),
-                                ],
-                                flags: MessageFlags.IsComponentsV2,
+                        const result = await askOpenRouter({
+                                question,
+                                useWeb,
                         });
+                        const duration = formatDuration(Date.now() - startedAt);
+                        const conversationId = createAskConversationId();
+                        const payloadOptions = {
+                                body: result.answer,
+                                footer: `generated in ${duration}`,
+                                conversationId,
+                                userId: ctx.user.id,
+                                includeReplyButton: true,
+                        };
+
+                        await storeAskConversation(ctx.client, conversationId, {
+                                userId: ctx.user.id,
+                                useWeb,
+                                messages: [
+                                        { role: 'user', content: question },
+                                        {
+                                                role: 'assistant',
+                                                content: result.answer,
+                                        },
+                                ],
+                        });
+
+                        const reply = await ctx.editReply(
+                                askResponsePayload(payloadOptions),
+                        );
+                        scheduleAskReplyButtonRemoval(reply, payloadOptions);
+                        return reply;
                 } catch (error) {
-                        logger.error('Ask', `OpenRouter request failed: ${error.message}`, error);
+                        logger.error(
+                                'Ask',
+                                `OpenRouter request failed: ${error.message}`,
+                                error,
+                        );
                         const duration = formatDuration(Date.now() - startedAt);
 
-                        return ctx.editReply({
-                                components: [
-                                        this._container(
-                                                openRouterErrorMessage(error),
-                                                `failed after ${duration}`,
-                                        ),
-                                ],
-                                flags: MessageFlags.IsComponentsV2,
-                        });
-                }
-        }
-
-        _container(body, footer = null) {
-                const container = new ContainerBuilder()
-                        .setAccentColor(0xffffff)
-                        .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
-
-                if (footer) {
-                        container.addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(`-# ${footer}`),
+                        return ctx.editReply(
+                                askResponsePayload({
+                                        body: openRouterErrorMessage(error),
+                                        footer: `failed after ${duration}`,
+                                }),
                         );
                 }
-
-                return container;
         }
 }
 

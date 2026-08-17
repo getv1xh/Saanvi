@@ -9,5 +9,6 @@ export * from './price.js';
 export * from './chart.js';
 export * from './pullRestart.js';
 export * from './openrouter.js';
+export * from './askConversation.js';
 export * from './premiumPrompt.js';
 export * from './supportTickets.js';
