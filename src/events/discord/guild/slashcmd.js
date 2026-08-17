@@ -52,6 +52,20 @@ import {
         SUGGEST_REPLY_RETRY_MODAL_PREFIX,
         SUGGEST_REPLY_RETRY_PREFIX,
         SUGGEST_REPLY_TONE_PREFIX,
+        BOOKMARK_CREATE_MODAL_PREFIX,
+        BOOKMARK_CREATE_PREFIX,
+        BOOKMARK_LIST_SELECT_PREFIX,
+        BOOKMARK_NAME_INPUT_ID,
+        BOOKMARK_PAGE_PREFIX,
+        BOOKMARK_SAVE_SELECT_PREFIX,
+        bookmarkCreateCollectionModal,
+        bookmarkExpiredPayload,
+        bookmarkLimitPayload,
+        bookmarkSavedPayload,
+        bookmarksCollectionMenuPayload,
+        bookmarksCollectionPagePayload,
+        bookmarkSourceKey,
+        parseStoredBookmarkSource,
         parseStoredSuggestReplySource,
         scheduleSuggestReplyButtonRemoval,
         storeSuggestReplySource,
@@ -301,7 +315,7 @@ const handleChatInputCommand = async (interaction, client) => {
                         );
                 }
 
-                const deferOptions = isMessageContext
+                const deferOptions = isMessageContext || commandToExecute.ephemeral
                         ? { flags: MessageFlags.Ephemeral }
                         : {};
                 const deferred = await deferInteraction(
@@ -898,6 +912,7 @@ const runSuggestReplyGeneration = async ({
 
                 const payloadOptions = {
                         answer: result.answer,
+                        suggestions: result.suggestions,
                         footer: `generated in ${duration}`,
                         sourceId,
                         userId,
@@ -2044,6 +2059,159 @@ const handlePremiumComponent = async (interaction) => {
         }
 };
 
+const ensureBookmarkOwner = (interaction, userId) => {
+        if (interaction.user.id === userId) return true;
+
+        interaction.reply({
+                content: 'This bookmark menu belongs to someone else.',
+                flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+        return false;
+};
+
+const getBookmarkSource = async (interaction, sourceId) =>
+        parseStoredBookmarkSource(
+                await interaction.client.c.get(bookmarkSourceKey(sourceId)),
+        );
+
+const handleBookmarkSaveSelect = async (interaction) => {
+        const [, action, sourceId, userId] = interaction.customId.split(':');
+        if (action !== 'save') return;
+        if (!ensureBookmarkOwner(interaction, userId)) return;
+
+        const source = await getBookmarkSource(interaction, sourceId);
+        if (!source) return interaction.update(bookmarkExpiredPayload());
+
+        const collectionId = interaction.values?.[0];
+        if (!collectionId) {
+                return interaction.reply({
+                        content: 'Please select a collection.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const result = await db.user.addBookmarkToCollection(
+                userId,
+                collectionId,
+                source,
+        );
+        await interaction.client.c.del(bookmarkSourceKey(sourceId));
+
+        return interaction.update(bookmarkSavedPayload(result));
+};
+
+const showBookmarkCreateModal = async (interaction) => {
+        const [, action, sourceId, userId] = interaction.customId.split(':');
+        if (action !== 'create') return;
+        if (!ensureBookmarkOwner(interaction, userId)) return;
+
+        const bookmarks = await db.user.getBookmarks(userId);
+        if ((bookmarks.collections?.length || 0) >= 4) {
+                return interaction.reply(bookmarkLimitPayload());
+        }
+
+        return interaction.showModal(
+                bookmarkCreateCollectionModal(sourceId, userId),
+        );
+};
+
+const handleBookmarkCreateModal = async (interaction) => {
+        const [, action, sourceId, userId] = interaction.customId.split(':');
+        if (action !== 'createmodal') return;
+        if (!ensureBookmarkOwner(interaction, userId)) return;
+
+        const source = await getBookmarkSource(interaction, sourceId);
+        if (!source) return interaction.reply(bookmarkExpiredPayload());
+
+        const name = interaction.fields
+                .getTextInputValue(BOOKMARK_NAME_INPUT_ID)
+                ?.trim();
+        if (!name) {
+                return interaction.reply({
+                        content: 'Please enter a collection name.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        try {
+                const collection = await db.user.createBookmarkCollection(
+                        userId,
+                        name,
+                );
+                const result = await db.user.addBookmarkToCollection(
+                        userId,
+                        collection.id,
+                        source,
+                );
+                await interaction.client.c.del(bookmarkSourceKey(sourceId));
+
+                return interaction.reply(bookmarkSavedPayload(result));
+        } catch (error) {
+                if (error.code === 'BOOKMARK_COLLECTION_LIMIT') {
+                        return interaction.reply(bookmarkLimitPayload());
+                }
+                throw error;
+        }
+};
+
+const handleBookmarksListSelect = async (interaction) => {
+        const [, action, userId] = interaction.customId.split(':');
+        if (action !== 'list') return;
+        if (!ensureBookmarkOwner(interaction, userId)) return;
+
+        const collectionId = interaction.values?.[0];
+        const bookmarks = await db.user.getBookmarks(userId);
+        const collection = bookmarks.collections.find(
+                (entry) => entry.id === collectionId,
+        );
+
+        if (!collection) {
+                return interaction.update(
+                        bookmarksCollectionMenuPayload(
+                                bookmarks.collections,
+                                userId,
+                        ),
+                );
+        }
+
+        return interaction.update(
+                bookmarksCollectionPagePayload({
+                        collection,
+                        page: 1,
+                        userId,
+                }),
+        );
+};
+
+const handleBookmarksPageButton = async (interaction) => {
+        const [, action, collectionId, page, userId] =
+                interaction.customId.split(':');
+        if (action !== 'page' || collectionId === 'label') return;
+        if (!ensureBookmarkOwner(interaction, userId)) return;
+
+        const bookmarks = await db.user.getBookmarks(userId);
+        const collection = bookmarks.collections.find(
+                (entry) => entry.id === collectionId,
+        );
+
+        if (!collection) {
+                return interaction.update(
+                        bookmarksCollectionMenuPayload(
+                                bookmarks.collections,
+                                userId,
+                        ),
+                );
+        }
+
+        return interaction.update(
+                bookmarksCollectionPagePayload({
+                        collection,
+                        page,
+                        userId,
+                }),
+        );
+};
+
 const handleMessageComponent = async (interaction) => {
         if (
                 ![ComponentType.Button, ComponentType.StringSelect].includes(
@@ -2073,6 +2241,20 @@ const handleMessageComponent = async (interaction) => {
                 interaction.customId.startsWith(SUGGEST_REPLY_RETRY_PREFIX)
         ) {
                 await showSuggestReplyRetryModal(interaction);
+        } else if (
+                interaction.customId.startsWith(BOOKMARK_SAVE_SELECT_PREFIX)
+        ) {
+                await handleBookmarkSaveSelect(interaction);
+        } else if (
+                interaction.customId.startsWith(BOOKMARK_CREATE_PREFIX)
+        ) {
+                await showBookmarkCreateModal(interaction);
+        } else if (
+                interaction.customId.startsWith(BOOKMARK_LIST_SELECT_PREFIX)
+        ) {
+                await handleBookmarksListSelect(interaction);
+        } else if (interaction.customId.startsWith(BOOKMARK_PAGE_PREFIX)) {
+                await handleBookmarksPageButton(interaction);
         } else if (interaction.customId.startsWith(SUPPORT_CLOSE_PREFIX)) {
                 await handleSupportCloseButton(interaction);
         } else if (interaction.customId.startsWith('addy_qr:')) {
@@ -2157,6 +2339,14 @@ export default {
                                         )
                                 ) {
                                         await handleSuggestReplyRetryModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                BOOKMARK_CREATE_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleBookmarkCreateModal(
                                                 interaction,
                                         );
                                 } else if (

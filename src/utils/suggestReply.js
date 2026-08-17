@@ -100,6 +100,29 @@ const retryButton = (sourceId, userId) =>
                 .setLabel('Retry')
                 .setStyle(ButtonStyle.Secondary);
 
+const codeSafeReply = (value) =>
+        String(value || '')
+                .trim()
+                .replace(/```/g, "`\u200b``");
+
+export const formatSuggestedReplies = (answer, suggestions = null) => {
+        const replies = (
+                Array.isArray(suggestions) && suggestions.length
+                        ? suggestions
+                        : String(answer || '')
+                                .split(/\n-{3,}\n/g)
+                                .map((entry) => entry.trim())
+        )
+                .filter(Boolean)
+                .slice(0, 4);
+
+        if (!replies.length) return '```I could not suggest a reply right now.```';
+
+        return replies
+                .map((reply) => `\`\`\`\n${codeSafeReply(reply)}\n\`\`\``)
+                .join('\n');
+};
+
 export const suggestReplyTonePayload = ({ sourceId, userId, preview }) => {
         const container = new ContainerBuilder()
                 .setAccentColor(0xffffff)
@@ -130,6 +153,7 @@ export const suggestReplyTonePayload = ({ sourceId, userId, preview }) => {
 
 export const suggestReplyGeneratedPayload = ({
         answer,
+        suggestions = null,
         footer = null,
         sourceId = null,
         userId = null,
@@ -139,7 +163,7 @@ export const suggestReplyGeneratedPayload = ({
                 .setAccentColor(0xffffff)
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
-                                `**Suggested Reply**\n${answer}`,
+                                `**Suggested Replies**\n${formatSuggestedReplies(answer, suggestions)}`,
                         ),
                 );
 

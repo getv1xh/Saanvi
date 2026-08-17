@@ -20,6 +20,7 @@ export class Command {
          * @param {boolean} [options.sameVoiceChannel] - Same voice as bot required
          * @param {boolean} [options.enabledSlash] - Enable as slash command
          * @param {boolean} [options.shouldNotDefer] - Should not defer
+         * @param {boolean} [options.ephemeral] - Defer slash command replies privately
          * @param {Object} [options.slashData] - Slash command data
          */
         constructor(options = {}) {
@@ -38,6 +39,7 @@ export class Command {
                 this.sameVoiceChannel = options.sameVoiceChannel || false;
                 this.enabledSlash = options.enabledSlash || false;
                 this.shouldNotDefer = options.shouldNotDefer || false;
+                this.ephemeral = options.ephemeral || false;
                 this.slashData = options.slashData || null;
                 this.prefix = options.prefix ?? false;
         }

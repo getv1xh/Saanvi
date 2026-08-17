@@ -21,6 +21,18 @@ export class UserService {
                 return await this.repo.getAllAddresses(userId);
         }
 
+        async getBookmarks(userId) {
+                return await this.repo.getBookmarks(userId);
+        }
+
+        async createBookmarkCollection(userId, name) {
+                return await this.repo.createBookmarkCollection(userId, name);
+        }
+
+        async addBookmarkToCollection(userId, collectionId, bookmark) {
+                return await this.repo.addBookmarkToCollection(userId, collectionId, bookmark);
+        }
+
         async isPremium(userId) {
                 return await this.repo.isPremium(userId);
         }
