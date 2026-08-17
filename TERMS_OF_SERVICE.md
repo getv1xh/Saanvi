@@ -4,15 +4,17 @@ Last updated: August 17, 2026
 
 These Terms of Service ("Terms") govern your access to and use of Saanvi, a Discord bot that provides cryptocurrency utilities, payment profile tools, AI question answering, support tickets, premium features, and related Discord bot functionality (the "Service").
 
-These Terms are a template for the bot operator. Replace the placeholders for the operator name, contact method, and governing law before publishing. This document is not legal advice.
+These Terms are a template for the bot operator. Replace the contact placeholder before publishing. This document is not legal advice.
 
 ## 1. Operator
 
 "Saanvi," "we," "us," and "our" refer to:
 
-**Operator:** [BOT OPERATOR NAME]  
+**Operator:** Veo, an independent operator based in India  
 **Contact:** [SUPPORT DISCORD SERVER, DISCORD USERNAME, OR EMAIL]  
 **Discord application:** Saanvi
+
+Saanvi is independently operated and is not affiliated with, endorsed by, or sponsored by Discord, Tatum, OpenRouter, PayPal, UPI, or any blockchain network.
 
 ## 2. Acceptance
 
@@ -124,7 +126,7 @@ We may update these Terms from time to time. The updated Terms will be posted wi
 
 ## 19. Governing Law
 
-These Terms are governed by the laws of [GOVERNING LAW / JURISDICTION], excluding conflict-of-law rules, unless applicable law requires otherwise.
+These Terms are governed by the laws of India, excluding conflict-of-law rules, unless applicable law requires otherwise.
 
 ## 20. Contact
 

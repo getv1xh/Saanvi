@@ -889,7 +889,7 @@ const runSuggestReplyGeneration = async ({
         const startedAt = Date.now();
 
         const thinkingPayload = suggestReplyGeneratedPayload({
-                answer: `${LOADING_EMOJI} **Writing a reply...**`,
+                answer: `**Writing a reply............**`,
         });
 
         if (updateOriginal) {

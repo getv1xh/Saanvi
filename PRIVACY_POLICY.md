@@ -4,15 +4,17 @@ Last updated: August 17, 2026
 
 This Privacy Policy explains how Saanvi, a Discord bot, collects, uses, stores, shares, and deletes information when you use Saanvi.
 
-This Privacy Policy is a template for the bot operator. Replace the placeholders for the operator name, contact method, and jurisdiction-specific details before publishing. This document is not legal advice.
+This Privacy Policy is a template for the bot operator. Replace the contact placeholder before publishing. This document is not legal advice.
 
 ## 1. Operator
 
 "Saanvi," "we," "us," and "our" refer to:
 
-**Operator:** [BOT OPERATOR NAME]  
+**Operator:** Veo, an independent operator based in India  
 **Contact:** [SUPPORT DISCORD SERVER, DISCORD USERNAME, OR EMAIL]  
 **Discord application:** Saanvi
+
+Saanvi is independently operated and is not affiliated with, endorsed by, or sponsored by Discord, Tatum, OpenRouter, PayPal, UPI, or any blockchain network.
 
 ## 2. Information We Collect
 
