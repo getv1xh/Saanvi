@@ -3,41 +3,33 @@ import {
         ApplicationCommandType,
         AttachmentBuilder,
         ContainerBuilder,
-        FileBuilder,
         MessageFlags,
         TextDisplayBuilder,
 } from 'discord.js';
 import { logger, readAloudOpenRouter } from '#utils';
 
-const LOADING_EMOJI = '<a:loading:1538534708739051562>';
 const READ_ICON = '<:book_icon:1538871828028588042>';
 const WARN_ICON = '<:warn:1538166311916544070>';
 const MAX_READ_ALOUD_CHARS = 1800;
+
+const cleanSpeechText = (message) =>
+        String(message.cleanContent || message.content || '')
+                .replace(/<a?:([a-zA-Z0-9_]+):\d+>/g, ' ')
+                .replace(/\p{Extended_Pictographic}|\uFE0F/gu, ' ')
+                .replace(/https?:\/\/\S+/g, ' link ')
+                .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+                .replace(/`{1,3}([^`]*)`{1,3}/g, '$1')
+                .replace(/[*_~|>#]/g, ' ')
+                .replace(/^\s*[-+]\s+/gm, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, MAX_READ_ALOUD_CHARS);
 
 const payload = (body, accentColor = 0xffffff) => {
         const container = new ContainerBuilder()
                 .setAccentColor(accentColor)
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(body),
-                );
-
-        return {
-                components: [container],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-                allowedMentions: { parse: [] },
-        };
-};
-
-const successPayload = (filename) => {
-        const container = new ContainerBuilder()
-                .setAccentColor(0xffffff)
-                .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(
-                                `${READ_ICON} **Read Aloud**\n**Done.**`,
-                        ),
-                )
-                .addFileComponents(
-                        new FileBuilder().setURL(`attachment://${filename}`),
                 );
 
         return {
@@ -65,20 +57,15 @@ class ReadAloudCommand extends Command {
 
         async execute({ ctx }) {
                 const message = ctx.interaction.targetMessage;
-                const content = message?.content?.trim();
+                const input = message ? cleanSpeechText(message) : '';
 
-                if (!message || !content) {
+                if (!message || !input) {
                         return ctx.editReply(
                                 payload(
                                         `${WARN_ICON} **No readable text found.**`,
                                 ),
                         );
                 }
-
-                const input = content.slice(0, MAX_READ_ALOUD_CHARS);
-                await ctx.editReply(
-                        payload(`${LOADING_EMOJI} **Reading aloud...**`),
-                );
 
                 try {
                         const result = await readAloudOpenRouter({ input });
@@ -88,7 +75,9 @@ class ReadAloudCommand extends Command {
                         });
 
                         return ctx.editReply({
-                                ...successPayload(filename),
+                                content: `${READ_ICON} Done.`,
+                                components: [],
+                                allowedMentions: { parse: [] },
                                 files: [attachment],
                         });
                 } catch (error) {
