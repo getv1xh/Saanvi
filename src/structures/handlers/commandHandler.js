@@ -182,7 +182,7 @@ export class CommandHandler {
          */
         _finalizeSlashCommands() {
                 for (const command of this.slashCommandFiles.values()) {
-                        const { name, description, options, defaultMemberPermissions } = command.slashData;
+                        const { name, description, options, defaultMemberPermissions, type } = command.slashData;
 
                         if (Array.isArray(name)) {
                                 if (name.length === 2) {
@@ -276,9 +276,10 @@ export class CommandHandler {
                         } else {
                                 const cmdData = {
                                         name,
-                                        description,
-                                        options: options || [],
                                 };
+                                if (description) cmdData.description = description;
+                                if (type) cmdData.type = type;
+                                if (options) cmdData.options = options;
                                 if (defaultMemberPermissions) {
                                         cmdData.default_member_permissions = defaultMemberPermissions.toString();
                                 }

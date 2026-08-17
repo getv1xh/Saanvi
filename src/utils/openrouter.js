@@ -96,15 +96,17 @@ const createRequestBody = ({
         messages,
         useWeb = false,
         webMode = 'tool',
+        systemPrompt = null,
+        temperature = 0.6,
 }) => {
         const body = {
                 model,
                 max_tokens: config.openrouter.maxTokens,
-                temperature: 0.6,
+                temperature,
                 messages: [
                         {
                                 role: 'system',
-                                content:
+                                content: systemPrompt ||
                                         'You are Saanvi, a cute but useful Discord utility bot. Answer clearly and briefly. ' +
                                         'If current internet knowledge is required and web search is not enabled, say that web search should be enabled instead of guessing.',
                         },
@@ -132,6 +134,24 @@ const createRequestBody = ({
         return body;
 };
 
+const openRouterHeaders = () => {
+        const apiKey = config.openrouter.apiKey;
+
+        if (!apiKey) {
+                throw new Error('OPENROUTER_API_KEY is not configured.');
+        }
+
+        const headers = {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+        };
+
+        if (config.openrouter.referer) headers['HTTP-Referer'] = config.openrouter.referer;
+        if (config.openrouter.title) headers['X-OpenRouter-Title'] = config.openrouter.title;
+
+        return headers;
+};
+
 const requestOpenRouter = async ({ headers, body }) => {
         const response = await fetch(OPENROUTER_URL, {
                 method: 'POST',
@@ -155,22 +175,11 @@ const requestOpenRouter = async ({ headers, body }) => {
 };
 
 export const askOpenRouter = async ({ question, messages, useWeb = false }) => {
-        const apiKey = config.openrouter.apiKey;
         const model = useWeb
                 ? config.openrouter.askWebModel || config.openrouter.askModel
                 : config.openrouter.askModel;
 
-        if (!apiKey) {
-                throw new Error('OPENROUTER_API_KEY is not configured.');
-        }
-
-        const headers = {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-        };
-
-        if (config.openrouter.referer) headers['HTTP-Referer'] = config.openrouter.referer;
-        if (config.openrouter.title) headers['X-OpenRouter-Title'] = config.openrouter.title;
+        const headers = openRouterHeaders();
 
         const webMode = useWeb && shouldUseWebPlugin(model) ? 'plugin' : 'tool';
         const body = createRequestBody({
@@ -217,5 +226,53 @@ export const askOpenRouter = async ({ question, messages, useWeb = false }) => {
                 answer: trimDiscord(answer),
                 model: data?.model || model,
                 usedWeb: useWeb,
+        };
+};
+
+
+export const suggestReplyOpenRouter = async ({
+        sourceMessage,
+        tone,
+        customTone = '',
+        changeRequest = '',
+        previousReply = '',
+}) => {
+        const model = config.openrouter.askModel;
+        const headers = openRouterHeaders();
+        const toneText = tone === 'custom' ? customTone : tone;
+
+        const body = createRequestBody({
+                model,
+                temperature: 0.75,
+                systemPrompt:
+                        'You write Discord message replies for the user. Return only the suggested reply text. ' +
+                        'Do not explain, quote the original message, add labels, or mention that you are an AI.',
+                messages: [
+                        {
+                                role: 'user',
+                                content:
+                                        `Original message author: ${sourceMessage.author || 'Unknown'}\n` +
+                                        `Original message:\n${sourceMessage.content}\n\n` +
+                                        `Requested tone: ${toneText || 'normal'}\n` +
+                                        (previousReply
+                                                ? `Previous suggestion:\n${previousReply}\n\n`
+                                                : '') +
+                                        (changeRequest
+                                                ? `Changes requested:\n${changeRequest}\n\n`
+                                                : '') +
+                                        'Write one natural reply the user could send. Keep it concise and Discord-friendly.',
+                        },
+                ],
+        });
+
+        const data = await requestOpenRouter({ headers, body });
+        const message = data?.choices?.[0]?.message;
+        const answer = normalizeContent(message?.content).trim();
+
+        if (!answer) throw new Error('OpenRouter returned an empty response.');
+
+        return {
+                answer: trimDiscord(answer, 1800),
+                model: data?.model || model,
         };
 };

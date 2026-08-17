@@ -46,6 +46,20 @@ import {
         parseStoredAskConversation,
         scheduleAskReplyButtonRemoval,
         storeAskConversation,
+        SUGGEST_REPLY_CHANGES_INPUT_ID,
+        SUGGEST_REPLY_CUSTOM_MODAL_PREFIX,
+        SUGGEST_REPLY_CUSTOM_TONE_INPUT_ID,
+        SUGGEST_REPLY_RETRY_MODAL_PREFIX,
+        SUGGEST_REPLY_RETRY_PREFIX,
+        SUGGEST_REPLY_TONE_PREFIX,
+        parseStoredSuggestReplySource,
+        scheduleSuggestReplyButtonRemoval,
+        storeSuggestReplySource,
+        suggestReplyCustomToneModal,
+        suggestReplyGeneratedPayload,
+        suggestReplyOpenRouter,
+        suggestReplyRetryModal,
+        suggestReplySourceKey,
         createSupportTicketId,
         supportActiveKey,
         supportAlreadyOpenPayload,
@@ -188,12 +202,12 @@ const respond = async (interaction, options) => {
 const isUnknownInteraction = (error) =>
         error?.code === 10062 || error?.rawError?.code === 10062;
 
-const deferInteraction = async (interaction) => {
+const deferInteraction = async (interaction, options = {}) => {
         if (!interaction || interaction.deferred || interaction.replied)
                 return true;
 
         try {
-                await interaction.deferReply();
+                await interaction.deferReply(options);
                 return true;
         } catch (error) {
                 if (isUnknownInteraction(error)) {
@@ -252,16 +266,16 @@ const handleChatInputCommand = async (interaction, client) => {
                         );
                 }
 
-                const deferred = await deferInteraction(interaction);
-                if (!deferred) return;
-
                 const inGuild = interaction.inGuild();
+                const isMessageContext =
+                        interaction.isMessageContextMenuCommand?.() || false;
                 const userId = interaction.user.id;
                 const guildId = interaction.guild?.id ?? null;
                 const channelId = interaction.channel?.id ?? null;
 
                 if (
                         inGuild &&
+                        !isMessageContext &&
                         interaction.channel &&
                         !canBotSendMessages(interaction.channel)
                 ) {
@@ -286,6 +300,15 @@ const handleChatInputCommand = async (interaction, client) => {
                                 true,
                         );
                 }
+
+                const deferOptions = isMessageContext
+                        ? { flags: MessageFlags.Ephemeral }
+                        : {};
+                const deferred = await deferInteraction(
+                        interaction,
+                        deferOptions,
+                );
+                if (!deferred) return;
 
                 const shouldCheckPremium =
                         config.premium.enabled &&
@@ -801,6 +824,265 @@ const handleAskReplyModal = async (interaction) => {
                         }),
                 );
         }
+};
+
+const parseSuggestReplyParts = (customId) => {
+        const [, action, sourceId, userId] = customId.split(':');
+        if (!['tone', 'retry', 'custommodal', 'retrymodal'].includes(action)) {
+                return null;
+        }
+        return { action, sourceId, userId };
+};
+
+const getSuggestReplySource = async (interaction, sourceId, userId) => {
+        const source = parseStoredSuggestReplySource(
+                await interaction.client.c.get(suggestReplySourceKey(sourceId)),
+        );
+
+        if (!source || source.userId !== userId) return null;
+        return source;
+};
+
+const suggestReplyErrorMessage = (error) => {
+        if (error.message.includes('OPENROUTER_API_KEY')) {
+                return '`OPENROUTER_API_KEY` is missing in the bot environment.';
+        }
+
+        if (error.status === 429) {
+                return 'OpenRouter or the selected model is rate-limited right now. Try again later.';
+        }
+
+        return 'I could not suggest a reply right now.';
+};
+
+const runSuggestReplyGeneration = async ({
+        interaction,
+        sourceId,
+        userId,
+        source,
+        tone,
+        customTone = '',
+        changeRequest = '',
+        previousReply = '',
+        editOriginal = false,
+}) => {
+        const startedAt = Date.now();
+
+        const thinkingPayload = suggestReplyGeneratedPayload({
+                answer: `${LOADING_EMOJI} **Writing a reply...**`,
+        });
+
+        if (editOriginal) {
+                await interaction.editReply(thinkingPayload);
+        } else if (interaction.deferred) {
+                await interaction.editReply(thinkingPayload);
+        }
+
+        try {
+                const result = await suggestReplyOpenRouter({
+                        sourceMessage: source,
+                        tone,
+                        customTone,
+                        changeRequest,
+                        previousReply,
+                });
+                const duration = formatAskDuration(Date.now() - startedAt);
+
+                await storeSuggestReplySource(interaction.client, sourceId, {
+                        ...source,
+                        tone,
+                        customTone,
+                        previousReply: result.answer,
+                });
+
+                const payloadOptions = {
+                        answer: result.answer,
+                        footer: `generated in ${duration}`,
+                        sourceId,
+                        userId,
+                        includeRetryButton: true,
+                };
+                const reply = await interaction.editReply(
+                        suggestReplyGeneratedPayload(payloadOptions),
+                );
+                scheduleSuggestReplyButtonRemoval(reply, payloadOptions);
+                return reply;
+        } catch (error) {
+                logger.error(
+                        'SuggestReply',
+                        `OpenRouter request failed: ${error.message}`,
+                        error,
+                );
+                const duration = formatAskDuration(Date.now() - startedAt);
+
+                return interaction.editReply(
+                        suggestReplyGeneratedPayload({
+                                answer: suggestReplyErrorMessage(error),
+                                footer: `failed after ${duration}`,
+                        }),
+                );
+        }
+};
+
+const handleSuggestReplyToneSelect = async (interaction) => {
+        const parts = parseSuggestReplyParts(interaction.customId);
+        if (!parts || parts.action !== 'tone') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This reply suggestion menu belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getSuggestReplySource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This reply suggestion has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const tone = interaction.values?.[0];
+        if (tone === 'custom') {
+                return interaction.showModal(
+                        suggestReplyCustomToneModal(sourceId, userId),
+                );
+        }
+
+        await interaction.deferUpdate();
+        return runSuggestReplyGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                tone: tone || 'normal',
+                editOriginal: true,
+        });
+};
+
+const showSuggestReplyRetryModal = async (interaction) => {
+        const parts = parseSuggestReplyParts(interaction.customId);
+        if (!parts || parts.action !== 'retry') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This retry button belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getSuggestReplySource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This reply suggestion has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.showModal(suggestReplyRetryModal(sourceId, userId));
+};
+
+const handleSuggestReplyCustomToneModal = async (interaction) => {
+        const parts = parseSuggestReplyParts(interaction.customId);
+        if (!parts || parts.action !== 'custommodal') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This custom tone form belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getSuggestReplySource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This reply suggestion has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const customTone = interaction.fields
+                .getTextInputValue(SUGGEST_REPLY_CUSTOM_TONE_INPUT_ID)
+                ?.trim();
+        if (!customTone) {
+                return interaction.reply({
+                        content: 'Please enter a tone.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        return runSuggestReplyGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                tone: 'custom',
+                customTone,
+        });
+};
+
+const handleSuggestReplyRetryModal = async (interaction) => {
+        const parts = parseSuggestReplyParts(interaction.customId);
+        if (!parts || parts.action !== 'retrymodal') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This retry form belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getSuggestReplySource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This reply suggestion has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const changeRequest = interaction.fields
+                .getTextInputValue(SUGGEST_REPLY_CHANGES_INPUT_ID)
+                ?.trim();
+        if (!changeRequest) {
+                return interaction.reply({
+                        content: 'Please describe what to change.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        return runSuggestReplyGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                tone: source.tone || 'normal',
+                customTone: source.customTone || '',
+                changeRequest,
+                previousReply: source.previousReply || '',
+        });
 };
 
 const followUpButton = (route, userId, plan, method) =>
@@ -1785,6 +2067,12 @@ const handleMessageComponent = async (interaction) => {
                 await showSupportReplyModal(interaction);
         } else if (interaction.customId.startsWith(ASK_REPLY_PREFIX)) {
                 await showAskReplyModal(interaction);
+        } else if (interaction.customId.startsWith(SUGGEST_REPLY_TONE_PREFIX)) {
+                await handleSuggestReplyToneSelect(interaction);
+        } else if (
+                interaction.customId.startsWith(SUGGEST_REPLY_RETRY_PREFIX)
+        ) {
+                await showSuggestReplyRetryModal(interaction);
         } else if (interaction.customId.startsWith(SUPPORT_CLOSE_PREFIX)) {
                 await handleSupportCloseButton(interaction);
         } else if (interaction.customId.startsWith('addy_qr:')) {
@@ -1855,6 +2143,22 @@ export default {
                                         )
                                 ) {
                                         await handleAskReplyModal(interaction);
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                SUGGEST_REPLY_CUSTOM_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleSuggestReplyCustomToneModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                SUGGEST_REPLY_RETRY_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleSuggestReplyRetryModal(
+                                                interaction,
+                                        );
                                 } else if (
                                         interaction.customId.startsWith(
                                                 SUPPORT_MODAL_PREFIX,
