@@ -18,10 +18,16 @@ export const SUPPORT_COMPONENT_PREFIX = 'support:';
 export const SUPPORT_CATEGORY_SELECT_PREFIX = `${SUPPORT_COMPONENT_PREFIX}category`;
 export const SUPPORT_MODAL_PREFIX = `${SUPPORT_COMPONENT_PREFIX}modal`;
 export const SUPPORT_CLOSE_PREFIX = `${SUPPORT_COMPONENT_PREFIX}close`;
+export const SUPPORT_REPLY_PREFIX = `${SUPPORT_COMPONENT_PREFIX}reply`;
+export const SUPPORT_REPLY_MODAL_PREFIX = `${SUPPORT_COMPONENT_PREFIX}replymodal`;
 export const SUPPORT_MESSAGE_INPUT_ID = 'support_ticket_message';
+export const SUPPORT_REPLY_MESSAGE_INPUT_ID = 'support_ticket_reply_message';
 export const SUPPORT_TICKET_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 const ticketEmoji = { name: 'CodeXSupport', id: '1538562574625407128' };
+const SUPPORT_EMOJI = '<:CodeXSupport:1538562574625407128>';
+const DOTS_EMOJI = '<:dots:1538555958228164759>';
+const CHAT_EMOJI = '<a:CHAT:1538828248308387896>';
 
 export const SUPPORT_CATEGORIES = {
         general: 'General Question',
@@ -48,34 +54,57 @@ const supportContainer = (content, accent = 0xffffff) =>
                         new TextDisplayBuilder().setContent(content),
                 );
 
+const quoteBlock = (value) =>
+        String(value || '')
+                .split('\n')
+                .map((line) => `> ${line || ' '}`)
+                .join('\n');
+
 export const supportCategoryPayload = (userId) => {
         const container = supportContainer(
                 '**Support Ticket**\n' +
-                '<:CodeXSupport:1538562574625407128> Choose the category that fits your issue.',
+                        '<:CodeXSupport:1538562574625407128> Choose the category that fits your issue.',
         )
                 .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
                 )
                 .addActionRowComponents(
                         new ActionRowBuilder().addComponents(
                                 new StringSelectMenuBuilder()
-                                        .setCustomId(supportCustomId('category', userId))
-                                        .setPlaceholder('Select a support category')
+                                        .setCustomId(
+                                                supportCustomId(
+                                                        'category',
+                                                        userId,
+                                                ),
+                                        )
+                                        .setPlaceholder(
+                                                'Select a support category',
+                                        )
                                         .addOptions(
                                                 new StringSelectMenuOptionBuilder()
-                                                        .setLabel(SUPPORT_CATEGORIES.general)
+                                                        .setLabel(
+                                                                SUPPORT_CATEGORIES.general,
+                                                        )
                                                         .setValue('general')
                                                         .setEmoji(ticketEmoji),
                                                 new StringSelectMenuOptionBuilder()
-                                                        .setLabel(SUPPORT_CATEGORIES.bug)
+                                                        .setLabel(
+                                                                SUPPORT_CATEGORIES.bug,
+                                                        )
                                                         .setValue('bug')
                                                         .setEmoji(ticketEmoji),
                                                 new StringSelectMenuOptionBuilder()
-                                                        .setLabel(SUPPORT_CATEGORIES.payment)
+                                                        .setLabel(
+                                                                SUPPORT_CATEGORIES.payment,
+                                                        )
                                                         .setValue('payment')
                                                         .setEmoji(ticketEmoji),
                                                 new StringSelectMenuOptionBuilder()
-                                                        .setLabel(SUPPORT_CATEGORIES.other)
+                                                        .setLabel(
+                                                                SUPPORT_CATEGORIES.other,
+                                                        )
                                                         .setValue('other')
                                                         .setEmoji(ticketEmoji),
                                         ),
@@ -92,8 +121,8 @@ export const supportAlreadyOpenPayload = (ticketId) => ({
         components: [
                 supportContainer(
                         '**Support Ticket Already Open**\n' +
-                        `You already have an active ticket: \`${ticketId}\`.\n` +
-                        'Please wait for the owner to close it before opening a new one.',
+                                `You already have an active ticket: \`${ticketId}\`.\n` +
+                                'Please wait for the owner to close it before opening a new one.',
                 ),
         ],
         flags: MessageFlags.IsComponentsV2,
@@ -119,11 +148,11 @@ export const supportSubmittedPayload = (ticketId, category, sent) => ({
         components: [
                 supportContainer(
                         sent > 0
-                                ? '**Support Ticket Created**\n' +
-                                  `Ticket \`${ticketId}\` was sent to the owner.\n` +
-                                  `**Category:** ${SUPPORT_CATEGORIES[category] || category}`
+                                ? `${SUPPORT_EMOJI} | **Support Ticket Created**\n` +
+                                          `> Ticket ${ticketId} was sent to the owner.\n` +
+                                          `> Category: ${SUPPORT_CATEGORIES[category] || category}`
                                 : '**Support Ticket Saved**\n' +
-                                  `Ticket \`${ticketId}\` was created, but I could not DM the owner right now.`,
+                                          `Ticket ${ticketId} was created, but I could not DM the owner right now.`,
                 ),
         ],
         flags: MessageFlags.IsComponentsV2,
@@ -131,20 +160,43 @@ export const supportSubmittedPayload = (ticketId, category, sent) => ({
 
 export const supportOwnerTicketPayload = (ticket, closed = false) => {
         const container = supportContainer(
-                (closed ? '**Support Ticket Closed**\n' : '**Support Ticket**\n') +
-                `**Ticket:** \`${ticket.id}\`\n` +
-                `**User:** ${ticket.userTag} (\`${ticket.userId}\`)\n` +
-                `**Category:** ${SUPPORT_CATEGORIES[ticket.category] || ticket.category}\n\n` +
-                `**Message:**\n${ticket.message}`,
+                `${SUPPORT_EMOJI} | **${closed ? 'Support Ticket Closed' : 'Support Ticket'}**\n\n` +
+                        `${DOTS_EMOJI} Ticket: ${ticket.id}\n` +
+                        `${DOTS_EMOJI} User: ${ticket.userTag} (${ticket.userId})\n` +
+                        `${DOTS_EMOJI} Category: ${SUPPORT_CATEGORIES[ticket.category] || ticket.category}\n\n` +
+                        `${CHAT_EMOJI} | Message:\n${quoteBlock(ticket.message)}`,
         )
                 .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
                 )
                 .addActionRowComponents(
                         new ActionRowBuilder().addComponents(
                                 new ButtonBuilder()
-                                        .setCustomId(supportCustomId('close', ticket.id))
-                                        .setLabel(closed ? 'Closed' : 'Close Ticket')
+                                        .setCustomId(
+                                                supportCustomId(
+                                                        'reply',
+                                                        ticket.id,
+                                                        ticket.userId,
+                                                ),
+                                        )
+                                        .setLabel('Reply')
+                                        .setStyle(ButtonStyle.Secondary)
+                                        .setDisabled(closed),
+                                new ButtonBuilder()
+                                        .setCustomId(
+                                                supportCustomId(
+                                                        'close',
+                                                        ticket.id,
+                                                        ticket.userId,
+                                                ),
+                                        )
+                                        .setLabel(
+                                                closed
+                                                        ? 'Closed'
+                                                        : 'Close Ticket',
+                                        )
                                         .setStyle(ButtonStyle.Secondary)
                                         .setDisabled(closed),
                         ),
@@ -157,12 +209,42 @@ export const supportOwnerTicketPayload = (ticket, closed = false) => {
         };
 };
 
+export const supportReplyModal = (ticketId, userId) =>
+        new ModalBuilder()
+                .setCustomId(supportCustomId('replymodal', ticketId, userId))
+                .setTitle('Support Ticket Reply')
+                .addComponents(
+                        new ActionRowBuilder().addComponents(
+                                new TextInputBuilder()
+                                        .setCustomId(
+                                                SUPPORT_REPLY_MESSAGE_INPUT_ID,
+                                        )
+                                        .setLabel('Reply message')
+                                        .setStyle(TextInputStyle.Paragraph)
+                                        .setMinLength(1)
+                                        .setMaxLength(1000)
+                                        .setRequired(true),
+                        ),
+                );
+
+export const supportReplyUserPayload = (ticket, message) => ({
+        components: [
+                supportContainer(
+                        `${SUPPORT_EMOJI} | **Support Ticket Reply**\n\n` +
+                                `${DOTS_EMOJI} Ticket: ${ticket.id}\n` +
+                                `${DOTS_EMOJI} Category: ${SUPPORT_CATEGORIES[ticket.category] || ticket.category}\n\n` +
+                                `${CHAT_EMOJI} | Message:\n${quoteBlock(message)}`,
+                ),
+        ],
+        flags: MessageFlags.IsComponentsV2,
+});
+
 export const supportClosedUserPayload = (ticket) => ({
         components: [
                 supportContainer(
                         '**Support Ticket Closed**\n' +
-                        `Your ticket \`${ticket.id}\` was closed.\n` +
-                        'You can open a new ticket now.',
+                                `Your ticket ${ticket.id} was closed.\n` +
+                                'You can open a new ticket now.',
                 ),
         ],
         flags: MessageFlags.IsComponentsV2,

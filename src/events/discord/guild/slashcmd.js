@@ -32,12 +32,17 @@ import {
         SUPPORT_CLOSE_PREFIX,
         SUPPORT_MESSAGE_INPUT_ID,
         SUPPORT_MODAL_PREFIX,
+        SUPPORT_REPLY_MESSAGE_INPUT_ID,
+        SUPPORT_REPLY_MODAL_PREFIX,
+        SUPPORT_REPLY_PREFIX,
         SUPPORT_TICKET_TTL_SECONDS,
         createSupportTicketId,
         supportActiveKey,
         supportAlreadyOpenPayload,
         supportClosedUserPayload,
         supportModal,
+        supportReplyModal,
+        supportReplyUserPayload,
         supportSubmittedPayload,
         supportTicketKey,
         supportOwnerTicketPayload,
@@ -57,8 +62,8 @@ const asset = (file) => path.join(__dirname, '../../../assets', file);
 const QR_FRAMES = [
         {
                 buffer: fs.readFileSync(asset('qr_frame2.jpg')),
-                box:    { left: 135, top: 183, right: 602, bottom: 593 },
-                pad:    18,
+                box: { left: 135, top: 183, right: 602, bottom: 593 },
+                pad: 18,
         },
 ];
 
@@ -71,10 +76,17 @@ const errorDescription = new TextDisplayBuilder();
 
 const publicEditOptions = (options) => ({
         ...options,
-        flags: options.flags ? options.flags & ~MessageFlags.Ephemeral : options.flags,
+        flags: options.flags
+                ? options.flags & ~MessageFlags.Ephemeral
+                : options.flags,
 });
 
-const sendError = async (interaction, title, description, forceEphemeral = false) => {
+const sendError = async (
+        interaction,
+        title,
+        description,
+        forceEphemeral = false,
+) => {
         if (!interaction || !title || !description) return;
 
         errorContainer.components.length = 0;
@@ -87,25 +99,32 @@ const sendError = async (interaction, title, description, forceEphemeral = false
                 .addTextDisplayComponents(errorDescription);
 
         try {
-                const canSend = interaction.channel && interaction.inGuild()
-                        ? canBotSendMessages(interaction.channel)
-                        : true;
+                const canSend =
+                        interaction.channel && interaction.inGuild()
+                                ? canBotSendMessages(interaction.channel)
+                                : true;
                 const flags =
                         !canSend || forceEphemeral
-                                ? MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+                                ? MessageFlags.IsComponentsV2 |
+                                  MessageFlags.Ephemeral
                                 : MessageFlags.IsComponentsV2;
 
                 const reply = { components: [errorContainer], flags };
 
                 if (interaction.deferred) {
-                        await interaction.editReply(publicEditOptions(reply)).catch(() => {});
+                        await interaction
+                                .editReply(publicEditOptions(reply))
+                                .catch(() => {});
                 } else if (interaction.replied) {
                         await interaction.followUp(reply).catch(() => {});
                 } else {
                         await interaction.reply(reply).catch(() => {});
                 }
         } catch (error) {
-                logger.error('InteractionCreate', `Failed to send error: ${error.message}`);
+                logger.error(
+                        'InteractionCreate',
+                        `Failed to send error: ${error.message}`,
+                );
         }
 };
 
@@ -118,29 +137,39 @@ const sendCooldown = async (interaction, cooldown) => {
                 let content = `**Cooldown** - Ends <t:${timestamp}:R>`;
 
                 const cooldownContainer = new ContainerBuilder();
-                cooldownContainer.setAccentColor(config.colors?.warn || 0xfee75c);
+                cooldownContainer.setAccentColor(
+                        config.colors?.warn || 0xfee75c,
+                );
                 cooldownContainer.addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(content),
                 );
                 const reply = {
                         components: [cooldownContainer],
-                        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                        flags:
+                                MessageFlags.IsComponentsV2 |
+                                MessageFlags.Ephemeral,
                 };
 
                 if (interaction.deferred) {
-                        await interaction.editReply(publicEditOptions(reply)).catch(() => {});
+                        await interaction
+                                .editReply(publicEditOptions(reply))
+                                .catch(() => {});
                 } else if (interaction.replied) {
                         await interaction.followUp(reply).catch(() => {});
                 } else {
                         await interaction.reply(reply).catch(() => {});
                 }
         } catch (error) {
-                logger.error('InteractionCreate', `Failed to send cooldown: ${error.message}`);
+                logger.error(
+                        'InteractionCreate',
+                        `Failed to send cooldown: ${error.message}`,
+                );
         }
 };
 
 const respond = async (interaction, options) => {
-        if (interaction.deferred) return interaction.editReply(publicEditOptions(options));
+        if (interaction.deferred)
+                return interaction.editReply(publicEditOptions(options));
         if (interaction.replied) return interaction.followUp(options);
         return interaction.reply(options);
 };
@@ -149,14 +178,18 @@ const isUnknownInteraction = (error) =>
         error?.code === 10062 || error?.rawError?.code === 10062;
 
 const deferInteraction = async (interaction) => {
-        if (!interaction || interaction.deferred || interaction.replied) return true;
+        if (!interaction || interaction.deferred || interaction.replied)
+                return true;
 
         try {
                 await interaction.deferReply();
                 return true;
         } catch (error) {
                 if (isUnknownInteraction(error)) {
-                        logger.warn('InteractionCreate', `Interaction expired before defer: /${interaction.commandName}`);
+                        logger.warn(
+                                'InteractionCreate',
+                                `Interaction expired before defer: /${interaction.commandName}`,
+                        );
                         return false;
                 }
                 throw error;
@@ -168,8 +201,10 @@ const getCommandFile = (interaction, client) => {
 
         try {
                 const { commandName } = interaction;
-                const subCommandGroup = interaction.options?.getSubcommandGroup(false);
-                const subCommandName = interaction.options?.getSubcommand(false);
+                const subCommandGroup =
+                        interaction.options?.getSubcommandGroup(false);
+                const subCommandName =
+                        interaction.options?.getSubcommand(false);
 
                 if (subCommandGroup && subCommandName) {
                         const cmd = client.commandHandler.slashCommandFiles.get(
@@ -185,7 +220,10 @@ const getCommandFile = (interaction, client) => {
                 }
                 return client.commandHandler.slashCommandFiles.get(commandName);
         } catch (error) {
-                logger.error('InteractionCreate', `Error getting command file: ${error.message}`);
+                logger.error(
+                        'InteractionCreate',
+                        `Error getting command file: ${error.message}`,
+                );
                 return null;
         }
 };
@@ -206,12 +244,16 @@ const handleChatInputCommand = async (interaction, client) => {
                 const deferred = await deferInteraction(interaction);
                 if (!deferred) return;
 
-                const inGuild   = interaction.inGuild();
-                const userId    = interaction.user.id;
-                const guildId   = interaction.guild?.id ?? null;
+                const inGuild = interaction.inGuild();
+                const userId = interaction.user.id;
+                const guildId = interaction.guild?.id ?? null;
                 const channelId = interaction.channel?.id ?? null;
 
-                if (inGuild && interaction.channel && !canBotSendMessages(interaction.channel)) {
+                if (
+                        inGuild &&
+                        interaction.channel &&
+                        !canBotSendMessages(interaction.channel)
+                ) {
                         return sendError(
                                 interaction,
                                 'Missing Bot Permissions',
@@ -239,18 +281,38 @@ const handleChatInputCommand = async (interaction, client) => {
                         !canBypassPremium(commandToExecute) &&
                         !isOwner(userId);
 
-                let isUserBlacklisted  = false;
+                let isUserBlacklisted = false;
                 let isGuildBlacklisted = false;
-                let isChannelIgnored   = false;
+                let isChannelIgnored = false;
 
                 try {
-                        [isUserBlacklisted, isGuildBlacklisted, isChannelIgnored] = await Promise.all([
-                                db.blacklist?.checkBlacklist(userId).catch(() => false) ?? false,
-                                inGuild && guildId ? db.blacklist?.checkBlacklist(guildId).catch(() => false) ?? false : false,
-                                inGuild && guildId && channelId ? db.guild?.isChannelIgnored(guildId, channelId).catch(() => false) ?? false : false,
+                        [
+                                isUserBlacklisted,
+                                isGuildBlacklisted,
+                                isChannelIgnored,
+                        ] = await Promise.all([
+                                db.blacklist
+                                        ?.checkBlacklist(userId)
+                                        .catch(() => false) ?? false,
+                                inGuild && guildId
+                                        ? (db.blacklist
+                                                  ?.checkBlacklist(guildId)
+                                                  .catch(() => false) ?? false)
+                                        : false,
+                                inGuild && guildId && channelId
+                                        ? (db.guild
+                                                  ?.isChannelIgnored(
+                                                          guildId,
+                                                          channelId,
+                                                  )
+                                                  .catch(() => false) ?? false)
+                                        : false,
                         ]);
                 } catch (error) {
-                        logger.error('InteractionCreate', `Database check failed: ${error.message}`);
+                        logger.error(
+                                'InteractionCreate',
+                                `Database check failed: ${error.message}`,
+                        );
                 }
 
                 if (isUserBlacklisted || isGuildBlacklisted) {
@@ -271,41 +333,64 @@ const handleChatInputCommand = async (interaction, client) => {
                         shouldCheckPremium &&
                         !(await db.user.isPremium(userId).catch(() => false))
                 ) {
-                        return respond(interaction, premiumPromptOptions(userId)).catch(() => {});
+                        return respond(
+                                interaction,
+                                premiumPromptOptions(userId),
+                        ).catch(() => {});
                 }
 
                 const cooldownScope = guildId ?? userId;
                 if (commandToExecute.cooldown && client.commandHandler) {
                         try {
-                                const cooldown = await client.commandHandler.isOnCooldown(
+                                const cooldown =
+                                        await client.commandHandler.isOnCooldown(
+                                                commandToExecute,
+                                                userId,
+                                                cooldownScope,
+                                        );
+                                if (cooldown) {
+                                        return await sendCooldown(
+                                                interaction,
+                                                cooldown,
+                                        );
+                                }
+                                await client.commandHandler.setCooldown(
                                         commandToExecute,
                                         userId,
                                         cooldownScope,
                                 );
-                                if (cooldown) {
-                                        return await sendCooldown(interaction, cooldown);
-                                }
-                                await client.commandHandler.setCooldown(commandToExecute, userId, cooldownScope);
                         } catch (error) {
-                                logger.error('InteractionCreate', `Cooldown check failed: ${error.message}`);
+                                logger.error(
+                                        'InteractionCreate',
+                                        `Cooldown check failed: ${error.message}`,
+                                );
                         }
                 }
 
                 try {
                         const ctx = new CommandContext({ client, interaction });
-                        const permissionValidation = await validateCommand(ctx, commandToExecute);
+                        const permissionValidation = await validateCommand(
+                                ctx,
+                                commandToExecute,
+                        );
                         if (!permissionValidation.valid) {
                                 return sendError(
                                         interaction,
-                                        permissionValidation.error?.title || 'Permission Error',
-                                        permissionValidation.error?.description || 'You cannot use this command.',
+                                        permissionValidation.error?.title ||
+                                                'Permission Error',
+                                        permissionValidation.error
+                                                ?.description ||
+                                                'You cannot use this command.',
                                         true,
                                 );
                         }
                         await commandToExecute.execute({ ctx });
                 } catch (error) {
                         if (isUnknownInteraction(error)) {
-                                logger.warn('InteractionCreate', `Interaction expired while executing: ${commandToExecute.slashData?.name || 'unknown'}`);
+                                logger.warn(
+                                        'InteractionCreate',
+                                        `Interaction expired while executing: ${commandToExecute.slashData?.name || 'unknown'}`,
+                                );
                                 return;
                         }
 
@@ -323,7 +408,10 @@ const handleChatInputCommand = async (interaction, client) => {
                 }
         } catch (error) {
                 if (isUnknownInteraction(error)) {
-                        logger.warn('InteractionCreate', `Expired interaction ignored: /${interaction?.commandName || 'unknown'}`);
+                        logger.warn(
+                                'InteractionCreate',
+                                `Expired interaction ignored: /${interaction?.commandName || 'unknown'}`,
+                        );
                         return;
                 }
 
@@ -356,7 +444,8 @@ const handleQrButton = async (interaction) => {
 
                 const address = interaction.customId.slice('addy_qr:'.length);
 
-                const frame = QR_FRAMES[Math.floor(Math.random() * QR_FRAMES.length)];
+                const frame =
+                        QR_FRAMES[Math.floor(Math.random() * QR_FRAMES.length)];
 
                 const boxW = frame.box.right - frame.box.left;
                 const boxH = frame.box.bottom - frame.box.top;
@@ -369,21 +458,31 @@ const handleQrButton = async (interaction) => {
                         color: { dark: '#000000', light: '#00000000' },
                 });
 
-                const offsetX = frame.box.left + Math.floor((boxW - qrSize) / 2);
-                const offsetY = frame.box.top  + Math.floor((boxH - qrSize) / 2);
+                const offsetX =
+                        frame.box.left + Math.floor((boxW - qrSize) / 2);
+                const offsetY = frame.box.top + Math.floor((boxH - qrSize) / 2);
 
                 const compositeBuf = await sharp(frame.buffer)
-                        .composite([{ input: qrBuf, top: offsetY, left: offsetX }])
+                        .composite([
+                                { input: qrBuf, top: offsetY, left: offsetX },
+                        ])
                         .png()
                         .toBuffer();
 
-                const attachment = new AttachmentBuilder(compositeBuf, { name: 'qr.png' });
+                const attachment = new AttachmentBuilder(compositeBuf, {
+                        name: 'qr.png',
+                });
 
                 await interaction.editReply({ components: [] });
                 await interaction.followUp({ files: [attachment] });
         } catch (error) {
-                logger.error('InteractionCreate', `QR generation error: ${error.message}`);
-                await interaction.followUp({ content: 'Failed to generate QR code.' }).catch(() => {});
+                logger.error(
+                        'InteractionCreate',
+                        `QR generation error: ${error.message}`,
+                );
+                await interaction
+                        .followUp({ content: 'Failed to generate QR code.' })
+                        .catch(() => {});
         }
 };
 
@@ -394,7 +493,8 @@ const handleUpiQrButton = async (interaction) => {
                 const upiId = interaction.customId.slice('upi_qr:'.length);
                 const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}`;
 
-                const frame = QR_FRAMES[Math.floor(Math.random() * QR_FRAMES.length)];
+                const frame =
+                        QR_FRAMES[Math.floor(Math.random() * QR_FRAMES.length)];
 
                 const boxW = frame.box.right - frame.box.left;
                 const boxH = frame.box.bottom - frame.box.top;
@@ -407,21 +507,31 @@ const handleUpiQrButton = async (interaction) => {
                         color: { dark: '#000000', light: '#00000000' },
                 });
 
-                const offsetX = frame.box.left + Math.floor((boxW - qrSize) / 2);
-                const offsetY = frame.box.top  + Math.floor((boxH - qrSize) / 2);
+                const offsetX =
+                        frame.box.left + Math.floor((boxW - qrSize) / 2);
+                const offsetY = frame.box.top + Math.floor((boxH - qrSize) / 2);
 
                 const compositeBuf = await sharp(frame.buffer)
-                        .composite([{ input: qrBuf, top: offsetY, left: offsetX }])
+                        .composite([
+                                { input: qrBuf, top: offsetY, left: offsetX },
+                        ])
                         .png()
                         .toBuffer();
 
-                const attachment = new AttachmentBuilder(compositeBuf, { name: 'qr.png' });
+                const attachment = new AttachmentBuilder(compositeBuf, {
+                        name: 'qr.png',
+                });
 
                 await interaction.editReply({ components: [] });
                 await interaction.followUp({ files: [attachment] });
         } catch (error) {
-                logger.error('InteractionCreate', `UPI QR generation error: ${error.message}`);
-                await interaction.followUp({ content: 'Failed to generate QR code.' }).catch(() => {});
+                logger.error(
+                        'InteractionCreate',
+                        `UPI QR generation error: ${error.message}`,
+                );
+                await interaction
+                        .followUp({ content: 'Failed to generate QR code.' })
+                        .catch(() => {});
         }
 };
 
@@ -429,13 +539,16 @@ const handlePaypalQrButton = async (interaction) => {
         try {
                 await interaction.deferUpdate();
 
-                const username  = interaction.customId.slice('paypal_qr:'.length);
+                const username = interaction.customId.slice(
+                        'paypal_qr:'.length,
+                );
                 const paypalUrl = `https://paypal.me/${username.replace(/^@/, '')}`;
 
-                const frame = QR_FRAMES[Math.floor(Math.random() * QR_FRAMES.length)];
+                const frame =
+                        QR_FRAMES[Math.floor(Math.random() * QR_FRAMES.length)];
 
-                const boxW  = frame.box.right - frame.box.left;
-                const boxH  = frame.box.bottom - frame.box.top;
+                const boxW = frame.box.right - frame.box.left;
+                const boxH = frame.box.bottom - frame.box.top;
                 const qrSize = Math.min(boxW, boxH) - frame.pad * 2;
 
                 const qrBuf = await QRCode.toBuffer(paypalUrl, {
@@ -445,37 +558,57 @@ const handlePaypalQrButton = async (interaction) => {
                         color: { dark: '#000000', light: '#00000000' },
                 });
 
-                const offsetX = frame.box.left + Math.floor((boxW - qrSize) / 2);
-                const offsetY = frame.box.top  + Math.floor((boxH - qrSize) / 2);
+                const offsetX =
+                        frame.box.left + Math.floor((boxW - qrSize) / 2);
+                const offsetY = frame.box.top + Math.floor((boxH - qrSize) / 2);
 
                 const compositeBuf = await sharp(frame.buffer)
-                        .composite([{ input: qrBuf, top: offsetY, left: offsetX }])
+                        .composite([
+                                { input: qrBuf, top: offsetY, left: offsetX },
+                        ])
                         .png()
                         .toBuffer();
 
-                const attachment = new AttachmentBuilder(compositeBuf, { name: 'qr.png' });
+                const attachment = new AttachmentBuilder(compositeBuf, {
+                        name: 'qr.png',
+                });
 
                 await interaction.editReply({ components: [] });
                 await interaction.followUp({ files: [attachment] });
         } catch (error) {
-                logger.error('InteractionCreate', `PayPal QR generation error: ${error.message}`);
-                await interaction.followUp({ content: 'Failed to generate QR code.' }).catch(() => {});
+                logger.error(
+                        'InteractionCreate',
+                        `PayPal QR generation error: ${error.message}`,
+                );
+                await interaction
+                        .followUp({ content: 'Failed to generate QR code.' })
+                        .catch(() => {});
         }
 };
 
 const handlePremiumPricingButton = async (interaction) => {
         try {
                 const [, , ownerId] = interaction.customId.split(':');
-                if (ownerId && ownerId !== '0' && ownerId !== interaction.user.id) {
+                if (
+                        ownerId &&
+                        ownerId !== '0' &&
+                        ownerId !== interaction.user.id
+                ) {
                         return interaction.reply({
                                 content: 'This premium menu belongs to someone else.',
                                 flags: MessageFlags.Ephemeral,
                         });
                 }
 
-                await interaction.update(premiumPricingPayload(interaction.user.id));
+                await interaction.update(
+                        premiumPricingPayload(interaction.user.id),
+                );
         } catch (error) {
-                logger.error('InteractionCreate', `Premium pricing button failed: ${error.message}`, error);
+                logger.error(
+                        'InteractionCreate',
+                        `Premium pricing button failed: ${error.message}`,
+                        error,
+                );
         }
 };
 
@@ -495,6 +628,7 @@ const planLabels = {
 const FOLLOW_UP_MESSAGE_INPUT_ID = 'premium_follow_up_message';
 const PREMIUM_SUPPORT_MESSAGE_INPUT_ID = 'premium_support_message';
 const DOTS_EMOJI = '<:dots:1538555958228164759>';
+const CHAT_EMOJI = '<a:CHAT:1538828248308387896>';
 
 const premiumCustomId = (...parts) =>
         ['premium', ...parts].filter(Boolean).join(':');
@@ -506,9 +640,23 @@ const premiumPlanPaymentText = (plan, method) =>
                 : `> ${DOTS_EMOJI} Plan: ${planLabels[plan] || plan}\n` +
                   `> ${DOTS_EMOJI}Payment: ${paymentLabels[method] || method}`;
 
+const quoteBlock = (value) =>
+        String(value || '')
+                .split('\n')
+                .map((line) => `> ${line || ' '}`)
+                .join('\n');
+
 const followUpButton = (route, userId, plan, method) =>
         new ButtonBuilder()
-                .setCustomId(premiumCustomId('followopen', route, userId, plan, method))
+                .setCustomId(
+                        premiumCustomId(
+                                'followopen',
+                                route,
+                                userId,
+                                plan,
+                                method,
+                        ),
+                )
                 .setLabel('Reply')
                 .setStyle(ButtonStyle.Secondary);
 
@@ -523,7 +671,9 @@ const premiumSentPayload = (plan, method, userId, sent) => {
                         ),
                 )
                 .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
                 )
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
@@ -542,12 +692,13 @@ const premiumUserFollowUpPayload = (message, plan, method, userId) => {
                 .setAccentColor(0xffffff)
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
-                                '**Premium Reply**\n' +
-                                `**Owner:** ${message}`,
+                                '**Premium Reply**\n' + `**Owner:** ${message}`,
                         ),
                 )
                 .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
                 )
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
@@ -574,15 +725,18 @@ const enforcePremiumRequestLimit = async (client, userId) => {
         const weekKey = `premium:req:week:${userId}`;
 
         const cooldownSet = await client.c.setnxex(cooldownKey, true, 600);
-        if (!cooldownSet) return 'Please wait 10 minutes before sending another premium request.';
+        if (!cooldownSet)
+                return 'Please wait 10 minutes before sending another premium request.';
 
         const dayCount = await client.c.incr(dayKey);
         if (dayCount === 1) await client.c.expire(dayKey, 86400);
-        if (dayCount > 2) return 'Daily limit reached. You can request premium access 2 times per day.';
+        if (dayCount > 2)
+                return 'Daily limit reached. You can request premium access 2 times per day.';
 
         const weekCount = await client.c.incr(weekKey);
         if (weekCount === 1) await client.c.expire(weekKey, 604800);
-        if (weekCount > 5) return 'Weekly limit reached. You can request premium access 5 times per week.';
+        if (weekCount > 5)
+                return 'Weekly limit reached. You can request premium access 5 times per week.';
 
         return null;
 };
@@ -596,22 +750,29 @@ const notifyOwnersOfPremiumRequest = async (interaction, plan, method) => {
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 '**Premium Access Request**\n' +
-                                '<:premium:1538553546352361572> A user requested premium access.',
+                                        '<:premium:1538553546352361572> A user requested premium access.',
                         ),
                 )
                 .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
                 )
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n` +
-                                `**Server:** ${serverValue}\n\n` +
-                                premiumPlanPaymentText(plan, method),
+                                        `**Server:** ${serverValue}\n\n` +
+                                        premiumPlanPaymentText(plan, method),
                         ),
                 )
                 .addActionRowComponents(
                         new ActionRowBuilder().addComponents(
-                                followUpButton('user', interaction.user.id, plan, method),
+                                followUpButton(
+                                        'user',
+                                        interaction.user.id,
+                                        plan,
+                                        method,
+                                ),
                         ),
                 );
         const payload = {
@@ -622,18 +783,28 @@ const notifyOwnersOfPremiumRequest = async (interaction, plan, method) => {
         let sent = 0;
         for (const ownerId of config.ownerIds || []) {
                 try {
-                        const owner = await interaction.client.users.fetch(ownerId);
+                        const owner =
+                                await interaction.client.users.fetch(ownerId);
                         await owner.send(payload);
                         sent++;
                 } catch (error) {
-                        logger.warn('Premium', `Failed to DM owner ${ownerId}: ${error.message}`);
+                        logger.warn(
+                                'Premium',
+                                `Failed to DM owner ${ownerId}: ${error.message}`,
+                        );
                 }
         }
 
         return sent;
 };
 
-const showPremiumFollowUpModal = async (interaction, route, userId, plan, method) => {
+const showPremiumFollowUpModal = async (
+        interaction,
+        route,
+        userId,
+        plan,
+        method,
+) => {
         if (route === 'user' && !isOwner(interaction.user.id)) {
                 return interaction.deferUpdate().catch(() => {});
         }
@@ -646,7 +817,15 @@ const showPremiumFollowUpModal = async (interaction, route, userId, plan, method
         }
 
         const modal = new ModalBuilder()
-                .setCustomId(premiumCustomId('followmodal', route, userId, plan, method))
+                .setCustomId(
+                        premiumCustomId(
+                                'followmodal',
+                                route,
+                                userId,
+                                plan,
+                                method,
+                        ),
+                )
                 .setTitle('Premium Reply')
                 .addComponents(
                         new ActionRowBuilder().addComponents(
@@ -665,14 +844,24 @@ const showPremiumFollowUpModal = async (interaction, route, userId, plan, method
 
 const showPremiumSupportModal = async (interaction, plan) => {
         const modal = new ModalBuilder()
-                .setCustomId(premiumCustomId('supportmodal', plan, interaction.user.id))
+                .setCustomId(
+                        premiumCustomId(
+                                'supportmodal',
+                                plan,
+                                interaction.user.id,
+                        ),
+                )
                 .setTitle('Premium Support')
                 .addComponents(
                         new ActionRowBuilder().addComponents(
                                 new TextInputBuilder()
-                                        .setCustomId(PREMIUM_SUPPORT_MESSAGE_INPUT_ID)
+                                        .setCustomId(
+                                                PREMIUM_SUPPORT_MESSAGE_INPUT_ID,
+                                        )
                                         .setLabel('Premium access question')
-                                        .setPlaceholder('Ask only about premium access, pricing, payment, or activation.')
+                                        .setPlaceholder(
+                                                'Ask only about premium access, pricing, payment, or activation.',
+                                        )
                                         .setStyle(TextInputStyle.Paragraph)
                                         .setMinLength(5)
                                         .setMaxLength(1000)
@@ -689,17 +878,25 @@ const premiumSupportWarningPayload = (plan, userId) => {
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 '**Premium Support**\n' +
-                                'Please use this form only for premium-access related questions, including pricing, payment, activation, or eligibility.\n\n' +
-                                '**Warning:** Repeated spam, unrelated messages, or misuse of this feature may result in a blacklist.',
+                                        'Please use this form only for premium-access related questions, including pricing, payment, activation, or eligibility.\n\n' +
+                                        '**Warning:** Repeated spam, unrelated messages, or misuse of this feature may result in a blacklist.',
                         ),
                 )
                 .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
                 )
                 .addActionRowComponents(
                         new ActionRowBuilder().addComponents(
                                 new ButtonBuilder()
-                                        .setCustomId(premiumCustomId('supportopen', plan, userId))
+                                        .setCustomId(
+                                                premiumCustomId(
+                                                        'supportopen',
+                                                        plan,
+                                                        userId,
+                                                ),
+                                        )
                                         .setLabel('Continue')
                                         .setStyle(ButtonStyle.Secondary),
                         ),
@@ -711,32 +908,32 @@ const premiumSupportWarningPayload = (plan, userId) => {
         };
 };
 
-const sendPremiumSupportQuestionToOwners = async (interaction, plan, message) => {
+const sendPremiumSupportQuestionToOwners = async (
+        interaction,
+        plan,
+        message,
+) => {
         const serverValue = interaction.guild
-                ? `${interaction.guild.name} (\`${interaction.guild.id}\`)`
+                ? `${interaction.guild.name}. (${interaction.guild.id})`
                 : 'User app / DM context';
         const container = new ContainerBuilder()
                 .setAccentColor(0xffffff)
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
-                                '**Premium Support Question**\n' +
-                                'A user submitted a premium-access related question.',
-                        ),
-                )
-                .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
-                )
-                .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(
-                                `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n` +
-                                `**Server:** ${serverValue}\n` +
-                                `**Plan:** ${planLabels[plan] || plan}\n\n` +
-                                `**Message:** ${message}`,
+                                `${DOTS_EMOJI} User: ${interaction.user.tag} (${interaction.user.id})\n` +
+                                        `${DOTS_EMOJI} Server: ${serverValue}\n` +
+                                        `${DOTS_EMOJI} Plan: ${planLabels[plan] || plan}\n\n` +
+                                        `${CHAT_EMOJI} | Message:\n${quoteBlock(message)}`,
                         ),
                 )
                 .addActionRowComponents(
                         new ActionRowBuilder().addComponents(
-                                followUpButton('user', interaction.user.id, plan, 'support'),
+                                followUpButton(
+                                        'user',
+                                        interaction.user.id,
+                                        plan,
+                                        'support',
+                                ),
                         ),
                 );
         const payload = {
@@ -747,23 +944,35 @@ const sendPremiumSupportQuestionToOwners = async (interaction, plan, message) =>
         let sent = 0;
         for (const ownerId of config.ownerIds || []) {
                 try {
-                        const owner = await interaction.client.users.fetch(ownerId);
+                        const owner =
+                                await interaction.client.users.fetch(ownerId);
                         await owner.send(payload);
                         sent++;
                 } catch (error) {
-                        logger.warn('Premium', `Failed to DM premium support question to owner ${ownerId}: ${error.message}`);
+                        logger.warn(
+                                'Premium',
+                                `Failed to DM premium support question to owner ${ownerId}: ${error.message}`,
+                        );
                 }
         }
 
         return sent;
 };
 
-const sendPremiumFollowUpToUser = async (interaction, userId, plan, method, message) => {
+const sendPremiumFollowUpToUser = async (
+        interaction,
+        userId,
+        plan,
+        method,
+        message,
+) => {
         if (!isOwner(interaction.user.id)) {
                 return interaction.deferUpdate().catch(() => {});
         }
 
-        const target = await interaction.client.users.fetch(userId).catch(() => null);
+        const target = await interaction.client.users
+                .fetch(userId)
+                .catch(() => null);
         if (!target) {
                 return interaction.reply({
                         content: 'Could not find that user.',
@@ -781,7 +990,10 @@ const sendPremiumFollowUpToUser = async (interaction, userId, plan, method, mess
                         ),
                 );
         } catch (error) {
-                logger.warn('Premium', `Failed to DM premium reply to ${userId}: ${error.message}`);
+                logger.warn(
+                        'Premium',
+                        `Failed to DM premium reply to ${userId}: ${error.message}`,
+                );
                 return interaction.reply({
                         content: 'Could not DM that user. They may have DMs closed.',
                         flags: MessageFlags.Ephemeral,
@@ -794,7 +1006,13 @@ const sendPremiumFollowUpToUser = async (interaction, userId, plan, method, mess
         });
 };
 
-const sendPremiumFollowUpToOwners = async (interaction, userId, plan, method, message) => {
+const sendPremiumFollowUpToOwners = async (
+        interaction,
+        userId,
+        plan,
+        method,
+        message,
+) => {
         if (interaction.user.id !== userId) {
                 return interaction.reply({
                         content: 'This reply belongs to someone else.',
@@ -807,17 +1025,19 @@ const sendPremiumFollowUpToOwners = async (interaction, userId, plan, method, me
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 '**Premium Reply**\n' +
-                                'A user replied to a premium-access conversation.',
+                                        'A user replied to a premium-access conversation.',
                         ),
                 )
                 .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
                 )
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
                                 `**User:** ${interaction.user.tag} (\`${interaction.user.id}\`)\n\n` +
-                                premiumPlanPaymentText(plan, method) +
-                                `\n\n**Message:** ${message}`,
+                                        premiumPlanPaymentText(plan, method) +
+                                        `\n\n**Message:** ${message}`,
                         ),
                 )
                 .addActionRowComponents(
@@ -833,27 +1053,35 @@ const sendPremiumFollowUpToOwners = async (interaction, userId, plan, method, me
         let sent = 0;
         for (const ownerId of config.ownerIds || []) {
                 try {
-                        const owner = await interaction.client.users.fetch(ownerId);
+                        const owner =
+                                await interaction.client.users.fetch(ownerId);
                         await owner.send(payload);
                         sent++;
                 } catch (error) {
-                        logger.warn('Premium', `Failed to DM owner ${ownerId}: ${error.message}`);
+                        logger.warn(
+                                'Premium',
+                                `Failed to DM owner ${ownerId}: ${error.message}`,
+                        );
                 }
         }
 
         return interaction.reply({
-                content: sent > 0
-                        ? 'Reply sent to the owner.'
-                        : 'Could not DM the owner. Please contact support manually.',
+                content:
+                        sent > 0
+                                ? 'Reply sent to the owner.'
+                                : 'Could not DM the owner. Please contact support manually.',
                 flags: MessageFlags.Ephemeral,
         });
 };
 
 const handlePremiumFollowUpModal = async (interaction) => {
-        const [, action, route, userId, plan, method] = interaction.customId.split(':');
+        const [, action, route, userId, plan, method] =
+                interaction.customId.split(':');
         if (action !== 'followmodal') return;
 
-        const message = interaction.fields.getTextInputValue(FOLLOW_UP_MESSAGE_INPUT_ID)?.trim();
+        const message = interaction.fields
+                .getTextInputValue(FOLLOW_UP_MESSAGE_INPUT_ID)
+                ?.trim();
         if (!message) {
                 return interaction.reply({
                         content: 'Please enter a message.',
@@ -862,11 +1090,23 @@ const handlePremiumFollowUpModal = async (interaction) => {
         }
 
         if (route === 'user') {
-                return sendPremiumFollowUpToUser(interaction, userId, plan, method, message);
+                return sendPremiumFollowUpToUser(
+                        interaction,
+                        userId,
+                        plan,
+                        method,
+                        message,
+                );
         }
 
         if (route === 'owners') {
-                return sendPremiumFollowUpToOwners(interaction, userId, plan, method, message);
+                return sendPremiumFollowUpToOwners(
+                        interaction,
+                        userId,
+                        plan,
+                        method,
+                        message,
+                );
         }
 };
 
@@ -881,7 +1121,9 @@ const handlePremiumSupportModal = async (interaction) => {
                 });
         }
 
-        const message = interaction.fields.getTextInputValue(PREMIUM_SUPPORT_MESSAGE_INPUT_ID)?.trim();
+        const message = interaction.fields
+                .getTextInputValue(PREMIUM_SUPPORT_MESSAGE_INPUT_ID)
+                ?.trim();
         if (!message) {
                 return interaction.reply({
                         content: 'Please enter your premium-access question.',
@@ -889,12 +1131,22 @@ const handlePremiumSupportModal = async (interaction) => {
                 });
         }
 
-        const limitMessage = await enforcePremiumRequestLimit(interaction.client, interaction.user.id);
+        const limitMessage = await enforcePremiumRequestLimit(
+                interaction.client,
+                interaction.user.id,
+        );
         if (limitMessage) {
-                return interaction.reply({ content: limitMessage, flags: MessageFlags.Ephemeral });
+                return interaction.reply({
+                        content: limitMessage,
+                        flags: MessageFlags.Ephemeral,
+                });
         }
 
-        const sent = await sendPremiumSupportQuestionToOwners(interaction, plan, message);
+        const sent = await sendPremiumSupportQuestionToOwners(
+                interaction,
+                plan,
+                message,
+        );
         const container = new ContainerBuilder()
                 .setAccentColor(0xffffff)
                 .addTextDisplayComponents(
@@ -933,9 +1185,13 @@ const handleSupportCategorySelect = async (interaction) => {
                 });
         }
 
-        const activeTicketId = await interaction.client.c.get(supportActiveKey(userId));
+        const activeTicketId = await interaction.client.c.get(
+                supportActiveKey(userId),
+        );
         if (activeTicketId) {
-                return interaction.reply(supportAlreadyOpenPayload(activeTicketId));
+                return interaction.reply(
+                        supportAlreadyOpenPayload(activeTicketId),
+                );
         }
 
         const category = interaction.values?.[0];
@@ -955,11 +1211,15 @@ const notifyOwnersOfSupportTicket = async (interaction, ticket) => {
 
         for (const ownerId of config.ownerIds || []) {
                 try {
-                        const owner = await interaction.client.users.fetch(ownerId);
+                        const owner =
+                                await interaction.client.users.fetch(ownerId);
                         await owner.send(payload);
                         sent++;
                 } catch (error) {
-                        logger.warn('Support', `Failed to DM owner ${ownerId}: ${error.message}`);
+                        logger.warn(
+                                'Support',
+                                `Failed to DM owner ${ownerId}: ${error.message}`,
+                        );
                 }
         }
 
@@ -977,7 +1237,9 @@ const handleSupportTicketModal = async (interaction) => {
                 });
         }
 
-        const message = interaction.fields.getTextInputValue(SUPPORT_MESSAGE_INPUT_ID)?.trim();
+        const message = interaction.fields
+                .getTextInputValue(SUPPORT_MESSAGE_INPUT_ID)
+                ?.trim();
         if (!message) {
                 return interaction.reply({
                         content: 'Please describe your issue.',
@@ -993,8 +1255,12 @@ const handleSupportTicketModal = async (interaction) => {
         );
 
         if (!reserved) {
-                const activeTicketId = await interaction.client.c.get(supportActiveKey(userId));
-                return interaction.reply(supportAlreadyOpenPayload(activeTicketId));
+                const activeTicketId = await interaction.client.c.get(
+                        supportActiveKey(userId),
+                );
+                return interaction.reply(
+                        supportAlreadyOpenPayload(activeTicketId),
+                );
         }
 
         const ticket = {
@@ -1013,11 +1279,100 @@ const handleSupportTicketModal = async (interaction) => {
         );
 
         const sent = await notifyOwnersOfSupportTicket(interaction, ticket);
-        return interaction.reply(supportSubmittedPayload(ticketId, category, sent));
+        return interaction.reply(
+                supportSubmittedPayload(ticketId, category, sent),
+        );
+};
+
+const buildFallbackTicket = (ticketId, userId) => ({
+        id: ticketId,
+        userId,
+        userTag: userId ? `<@${userId}>` : 'Unknown User',
+        category: 'unknown',
+        message: 'Ticket data is no longer cached, but this button still has the user id.',
+});
+
+const showSupportReplyModal = async (interaction) => {
+        const [, action, ticketId, userId] = interaction.customId.split(':');
+        if (action !== 'reply') return;
+
+        if (!isOwner(interaction.user.id)) {
+                return interaction.reply({
+                        content: 'Only the owner can reply to support tickets.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        if (!ticketId || !userId) {
+                return interaction.reply({
+                        content: 'This ticket reply button is missing ticket data.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.showModal(supportReplyModal(ticketId, userId));
+};
+
+const handleSupportReplyModal = async (interaction) => {
+        const [, action, ticketId, userId] = interaction.customId.split(':');
+        if (action !== 'replymodal') return;
+
+        if (!isOwner(interaction.user.id)) {
+                return interaction.reply({
+                        content: 'Only the owner can reply to support tickets.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const message = interaction.fields
+                .getTextInputValue(SUPPORT_REPLY_MESSAGE_INPUT_ID)
+                ?.trim();
+        if (!message) {
+                return interaction.reply({
+                        content: 'Please enter a reply.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const ticket =
+                parseStoredTicket(
+                        await interaction.client.c.get(
+                                supportTicketKey(ticketId),
+                        ),
+                ) || buildFallbackTicket(ticketId, userId);
+        const target = await interaction.client.users
+                .fetch(userId)
+                .catch(() => null);
+
+        if (!target) {
+                return interaction.reply({
+                        content: 'Could not find that user.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        try {
+                await target.send(supportReplyUserPayload(ticket, message));
+        } catch (error) {
+                logger.warn(
+                        'Support',
+                        `Failed to DM support reply to ${userId}: ${error.message}`,
+                );
+                return interaction.reply({
+                        content: 'Could not DM that user. They may have DMs closed.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.reply({
+                content: `Reply sent to ${target.tag}.`,
+                flags: MessageFlags.Ephemeral,
+        });
 };
 
 const handleSupportCloseButton = async (interaction) => {
-        const [, action, ticketId] = interaction.customId.split(':');
+        const [, action, ticketId, encodedUserId] =
+                interaction.customId.split(':');
         if (action !== 'close') return;
 
         if (!isOwner(interaction.user.id)) {
@@ -1027,7 +1382,15 @@ const handleSupportCloseButton = async (interaction) => {
                 });
         }
 
-        const ticket = parseStoredTicket(await interaction.client.c.get(supportTicketKey(ticketId)));
+        const ticket =
+                parseStoredTicket(
+                        await interaction.client.c.get(
+                                supportTicketKey(ticketId),
+                        ),
+                ) ||
+                (encodedUserId
+                        ? buildFallbackTicket(ticketId, encodedUserId)
+                        : null);
         if (!ticket) {
                 return interaction.reply({
                         content: 'This ticket is already closed or expired.',
@@ -1040,11 +1403,18 @@ const handleSupportCloseButton = async (interaction) => {
 
         await interaction.update(supportOwnerTicketPayload(ticket, true));
 
-        const target = await interaction.client.users.fetch(ticket.userId).catch(() => null);
+        const target = await interaction.client.users
+                .fetch(ticket.userId)
+                .catch(() => null);
         if (target) {
-                await target.send(supportClosedUserPayload(ticket)).catch((error) => {
-                        logger.warn('Support', `Failed to notify user ${ticket.userId}: ${error.message}`);
-                });
+                await target
+                        .send(supportClosedUserPayload(ticket))
+                        .catch((error) => {
+                                logger.warn(
+                                        'Support',
+                                        `Failed to notify user ${ticket.userId}: ${error.message}`,
+                                );
+                        });
         }
 };
 
@@ -1056,13 +1426,23 @@ const handlePremiumComponent = async (interaction) => {
 
         if (action === 'followopen') {
                 const [, , route, userId, followPlan, method] = parts;
-                return showPremiumFollowUpModal(interaction, route, userId, followPlan, method);
+                return showPremiumFollowUpModal(
+                        interaction,
+                        route,
+                        userId,
+                        followPlan,
+                        method,
+                );
         }
 
         if (action === 'supportopen') {
                 const supportPlan = parts[2];
                 const userId = parts[3];
-                if (userId && userId !== '0' && userId !== interaction.user.id) {
+                if (
+                        userId &&
+                        userId !== '0' &&
+                        userId !== interaction.user.id
+                ) {
                         return interaction.reply({
                                 content: 'This premium support menu belongs to someone else.',
                                 flags: MessageFlags.Ephemeral,
@@ -1080,27 +1460,39 @@ const handlePremiumComponent = async (interaction) => {
         }
 
         if (action === 'plan') {
-                return interaction.update(premiumPlanPayload(plan, interaction.user.id));
+                return interaction.update(
+                        premiumPlanPayload(plan, interaction.user.id),
+                );
         }
 
         if (action === 'back') {
-                return interaction.update(premiumPricingPayload(interaction.user.id));
+                return interaction.update(
+                        premiumPricingPayload(interaction.user.id),
+                );
         }
 
         if (action === 'request') {
-                return interaction.update(premiumPaymentPayload(plan, interaction.user.id));
+                return interaction.update(
+                        premiumPaymentPayload(plan, interaction.user.id),
+                );
         }
 
         if (action === 'payback') {
-                return interaction.update(premiumPlanPayload(plan, interaction.user.id));
+                return interaction.update(
+                        premiumPlanPayload(plan, interaction.user.id),
+                );
         }
 
         if (action === 'ask-support') {
-                return interaction.reply(premiumSupportWarningPayload(plan, interaction.user.id));
+                return interaction.reply(
+                        premiumSupportWarningPayload(plan, interaction.user.id),
+                );
         }
 
         if (action === 'contact-support') {
-                return interaction.reply(premiumSupportWarningPayload(plan, interaction.user.id));
+                return interaction.reply(
+                        premiumSupportWarningPayload(plan, interaction.user.id),
+                );
         }
 
         if (action === 'payselect') {
@@ -1112,25 +1504,54 @@ const handlePremiumComponent = async (interaction) => {
                         });
                 }
 
-                const limitMessage = await enforcePremiumRequestLimit(interaction.client, interaction.user.id);
+                const limitMessage = await enforcePremiumRequestLimit(
+                        interaction.client,
+                        interaction.user.id,
+                );
                 if (limitMessage) {
-                        return interaction.reply({ content: limitMessage, flags: MessageFlags.Ephemeral });
+                        return interaction.reply({
+                                content: limitMessage,
+                                flags: MessageFlags.Ephemeral,
+                        });
                 }
 
-                const sent = await notifyOwnersOfPremiumRequest(interaction, plan, method);
-                return interaction.update(premiumSentPayload(plan, method, interaction.user.id, sent > 0));
+                const sent = await notifyOwnersOfPremiumRequest(
+                        interaction,
+                        plan,
+                        method,
+                );
+                return interaction.update(
+                        premiumSentPayload(
+                                plan,
+                                method,
+                                interaction.user.id,
+                                sent > 0,
+                        ),
+                );
         }
 };
 
 const handleMessageComponent = async (interaction) => {
-        if (![ComponentType.Button, ComponentType.StringSelect].includes(interaction.componentType)) return;
+        if (
+                ![ComponentType.Button, ComponentType.StringSelect].includes(
+                        interaction.componentType,
+                )
+        )
+                return;
 
-        if (interaction.customId === PREMIUM_PRICING_BUTTON_ID || interaction.customId.startsWith(`${PREMIUM_PRICING_BUTTON_ID}:`)) {
+        if (
+                interaction.customId === PREMIUM_PRICING_BUTTON_ID ||
+                interaction.customId.startsWith(`${PREMIUM_PRICING_BUTTON_ID}:`)
+        ) {
                 await handlePremiumPricingButton(interaction);
         } else if (interaction.customId.startsWith(PREMIUM_COMPONENT_PREFIX)) {
                 await handlePremiumComponent(interaction);
-        } else if (interaction.customId.startsWith(SUPPORT_CATEGORY_SELECT_PREFIX)) {
+        } else if (
+                interaction.customId.startsWith(SUPPORT_CATEGORY_SELECT_PREFIX)
+        ) {
                 await handleSupportCategorySelect(interaction);
+        } else if (interaction.customId.startsWith(SUPPORT_REPLY_PREFIX)) {
+                await showSupportReplyModal(interaction);
         } else if (interaction.customId.startsWith(SUPPORT_CLOSE_PREFIX)) {
                 await handleSupportCloseButton(interaction);
         } else if (interaction.customId.startsWith('addy_qr:')) {
@@ -1150,27 +1571,74 @@ export default {
                 const [interaction] = eventArgs;
 
                 try {
-                        if (interaction.type === InteractionType.ApplicationCommand) {
-                                await handleChatInputCommand(interaction, client);
-                        } else if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
+                        if (
+                                interaction.type ===
+                                InteractionType.ApplicationCommand
+                        ) {
+                                await handleChatInputCommand(
+                                        interaction,
+                                        client,
+                                );
+                        } else if (
+                                interaction.type ===
+                                InteractionType.ApplicationCommandAutocomplete
+                        ) {
                                 await handleAutocomplete(interaction, client);
-                        } else if (interaction.type === InteractionType.MessageComponent) {
+                        } else if (
+                                interaction.type ===
+                                InteractionType.MessageComponent
+                        ) {
                                 await handleMessageComponent(interaction);
-                        } else if (interaction.type === InteractionType.ModalSubmit) {
-                                if (interaction.customId.startsWith(`${PREMIUM_COMPONENT_PREFIX}followmodal:`)) {
-                                        await handlePremiumFollowUpModal(interaction);
-                                } else if (interaction.customId.startsWith(`${PREMIUM_COMPONENT_PREFIX}supportmodal:`)) {
-                                        await handlePremiumSupportModal(interaction);
-                                } else if (interaction.customId.startsWith(SUPPORT_MODAL_PREFIX)) {
-                                        await handleSupportTicketModal(interaction);
+                        } else if (
+                                interaction.type === InteractionType.ModalSubmit
+                        ) {
+                                if (
+                                        interaction.customId.startsWith(
+                                                `${PREMIUM_COMPONENT_PREFIX}followmodal:`,
+                                        )
+                                ) {
+                                        await handlePremiumFollowUpModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                `${PREMIUM_COMPONENT_PREFIX}supportmodal:`,
+                                        )
+                                ) {
+                                        await handlePremiumSupportModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                SUPPORT_REPLY_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleSupportReplyModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                SUPPORT_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleSupportTicketModal(
+                                                interaction,
+                                        );
                                 }
                         }
                 } catch (error) {
                         if (isUnknownInteraction(error)) {
-                                logger.warn('InteractionCreate', 'Expired interaction ignored.');
+                                logger.warn(
+                                        'InteractionCreate',
+                                        'Expired interaction ignored.',
+                                );
                                 return;
                         }
-                        logger.error('InteractionCreate', `Fatal error: ${error.message}`, error);
+                        logger.error(
+                                'InteractionCreate',
+                                `Fatal error: ${error.message}`,
+                                error,
+                        );
                 }
         },
 };
