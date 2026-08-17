@@ -3,9 +3,8 @@ import {
         ApplicationCommandType,
         AttachmentBuilder,
         ContainerBuilder,
+        FileBuilder,
         MessageFlags,
-        SeparatorBuilder,
-        SeparatorSpacingSize,
         TextDisplayBuilder,
 } from 'discord.js';
 import { logger, readAloudOpenRouter } from '#utils';
@@ -29,23 +28,16 @@ const payload = (body, accentColor = 0xffffff) => {
         };
 };
 
-const successPayload = ({ author, chars }) => {
+const successPayload = (filename) => {
         const container = new ContainerBuilder()
                 .setAccentColor(0xffffff)
                 .addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
-                                `${READ_ICON} **Read Aloud**\nGenerated an MP3 from **${author}**.`,
+                                `${READ_ICON} **Read Aloud**\n**Done.**`,
                         ),
                 )
-                .addSeparatorComponents(
-                        new SeparatorBuilder()
-                                .setSpacing(SeparatorSpacingSize.Small)
-                                .setDivider(true),
-                )
-                .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(
-                                `-# ${chars} character${chars === 1 ? '' : 's'} read aloud.`,
-                        ),
+                .addFileComponents(
+                        new FileBuilder().setURL(`attachment://${filename}`),
                 );
 
         return {
@@ -90,19 +82,13 @@ class ReadAloudCommand extends Command {
 
                 try {
                         const result = await readAloudOpenRouter({ input });
+                        const filename = `read-aloud-${message.id}.mp3`;
                         const attachment = new AttachmentBuilder(result.audio, {
-                                name: `read-aloud-${message.id}.mp3`,
+                                name: filename,
                         });
-                        const author =
-                                message.author?.tag ||
-                                message.author?.username ||
-                                'Unknown';
 
                         return ctx.editReply({
-                                ...successPayload({
-                                        author,
-                                        chars: input.length,
-                                }),
+                                ...successPayload(filename),
                                 files: [attachment],
                         });
                 } catch (error) {
