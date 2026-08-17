@@ -51,24 +51,46 @@ const trimDiscord = (text, max = 3500) => {
         return `${text.slice(0, max - 20).trim()}...`;
 };
 
-export const askOpenRouter = async ({ question, useWeb = false }) => {
-        const apiKey = config.openrouter.apiKey;
-        const model = useWeb
-                ? config.openrouter.askWebModel || config.openrouter.askModel
-                : config.openrouter.askModel;
+const webResultLimit = () => Math.max(1, Math.min(config.openrouter.webMaxResults || 3, 25));
 
-        if (!apiKey) {
-                throw new Error('OPENROUTER_API_KEY is not configured.');
-        }
+const shouldUseWebPlugin = (model) => /(^|:)free($|:)/.test(model);
 
-        const headers = {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
+const isToolSupportError = (error) => (
+        error instanceof OpenRouterError &&
+        error.status === 404 &&
+        /no endpoints found.*support tool use/i.test(error.message)
+);
+
+const addWebPlugin = (body) => {
+        const webPlugin = {
+                id: 'web',
+                max_results: webResultLimit(),
         };
 
-        if (config.openrouter.referer) headers['HTTP-Referer'] = config.openrouter.referer;
-        if (config.openrouter.title) headers['X-OpenRouter-Title'] = config.openrouter.title;
+        if (config.openrouter.webEngine) webPlugin.engine = config.openrouter.webEngine;
+        if (config.openrouter.webMode) webPlugin.mode = config.openrouter.webMode;
 
+        body.plugins = [webPlugin];
+};
+
+const addWebTool = (body) => {
+        const webSearch = {
+                type: 'openrouter:web_search',
+                parameters: {
+                        max_results: webResultLimit(),
+                        max_uses: 2,
+                        max_total_results: webResultLimit(),
+                },
+        };
+
+        if (config.openrouter.webEngine) webSearch.parameters.engine = config.openrouter.webEngine;
+        if (config.openrouter.webMode) webSearch.parameters.mode = config.openrouter.webMode;
+
+        body.tools = [webSearch];
+        body.max_tool_calls = 2;
+};
+
+const createRequestBody = ({ model, question, useWeb = false, webMode = 'tool' }) => {
         const body = {
                 model,
                 max_tokens: config.openrouter.maxTokens,
@@ -87,24 +109,20 @@ export const askOpenRouter = async ({ question, useWeb = false }) => {
                 ],
         };
 
-        if (useWeb) {
-                const webSearch = {
-                        type: 'openrouter:web_search',
-                        parameters: {
-                                max_results: Math.max(1, Math.min(config.openrouter.webMaxResults || 3, 25)),
-                                max_uses: 2,
-                                max_total_results: Math.max(1, Math.min(config.openrouter.webMaxResults || 3, 25)),
-                        },
-                };
+        if (!useWeb) return body;
 
-                if (config.openrouter.webEngine) webSearch.parameters.engine = config.openrouter.webEngine;
-                if (config.openrouter.webMode) webSearch.parameters.mode = config.openrouter.webMode;
+        body.messages[0].content += ' When web search is enabled, use it for current facts and cite the sources.';
 
-                body.tools = [webSearch];
-                body.max_tool_calls = 2;
-                body.messages[0].content += ' When web search is enabled, use it for current facts and cite the sources.';
+        if (webMode === 'plugin') {
+                addWebPlugin(body);
+        } else {
+                addWebTool(body);
         }
 
+        return body;
+};
+
+const requestOpenRouter = async ({ headers, body }) => {
         const response = await fetch(OPENROUTER_URL, {
                 method: 'POST',
                 headers,
@@ -121,6 +139,55 @@ export const askOpenRouter = async ({ question, useWeb = false }) => {
         if (!response.ok) {
                 const message = data?.error?.message || raw || response.statusText;
                 throw new OpenRouterError(message, response.status);
+        }
+
+        return data;
+};
+
+export const askOpenRouter = async ({ question, useWeb = false }) => {
+        const apiKey = config.openrouter.apiKey;
+        const model = useWeb
+                ? config.openrouter.askWebModel || config.openrouter.askModel
+                : config.openrouter.askModel;
+
+        if (!apiKey) {
+                throw new Error('OPENROUTER_API_KEY is not configured.');
+        }
+
+        const headers = {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+        };
+
+        if (config.openrouter.referer) headers['HTTP-Referer'] = config.openrouter.referer;
+        if (config.openrouter.title) headers['X-OpenRouter-Title'] = config.openrouter.title;
+
+        const webMode = useWeb && shouldUseWebPlugin(model) ? 'plugin' : 'tool';
+        const body = createRequestBody({
+                model,
+                question,
+                useWeb,
+                webMode,
+        });
+
+        let data;
+
+        try {
+                data = await requestOpenRouter({ headers, body });
+        } catch (error) {
+                if (!useWeb || webMode === 'plugin' || !isToolSupportError(error)) {
+                        throw error;
+                }
+
+                data = await requestOpenRouter({
+                        headers,
+                        body: createRequestBody({
+                                model,
+                                question,
+                                useWeb,
+                                webMode: 'plugin',
+                        }),
+                });
         }
 
         const choice = data?.choices?.[0];

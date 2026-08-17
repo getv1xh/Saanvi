@@ -141,7 +141,7 @@ MONGODB_URI=your_mongodb_connection_string
 TATUM_API_KEY=your_tatum_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
 ASK_MODEL=openrouter/auto
-ASK_WEB_MODEL=openai/gpt-4o-mini
+ASK_WEB_MODEL=nvidia/nemotron-3.5-lightning:free
 ASK_WEB_ENGINE=
 ASK_WEB_MODE=
 ASK_WEB_MAX_RESULTS=3
@@ -161,7 +161,7 @@ PREMIUM_PRICING=$3.99 / month
 | `TATUM_API_KEY`| Yes      | Tatum API key for on-chain balance and tx lookups  |
 | `OPENROUTER_API_KEY`| No   | OpenRouter API key for the `/ask` command          |
 | `ASK_MODEL`    | No       | OpenRouter model slug used by `/ask`               |
-| `ASK_WEB_MODEL`| No       | Tool-capable OpenRouter model used by `/ask web:true` |
+| `ASK_WEB_MODEL`| No       | OpenRouter model used by `/ask web:true`; free models use the web plugin fallback |
 | `ASK_WEB_ENGINE`| No      | Optional OpenRouter web engine for `/ask web:true` |
 | `ASK_WEB_MODE` | No       | Optional mode for the selected web engine          |
 | `ASK_WEB_MAX_RESULTS`| No   | Max web results when `/ask web:true` is used       |
