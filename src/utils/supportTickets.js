@@ -144,19 +144,41 @@ export const supportModal = (userId, category) =>
                         ),
                 );
 
-export const supportSubmittedPayload = (ticketId, category, sent) => ({
-        components: [
-                supportContainer(
-                        sent > 0
-                                ? `${SUPPORT_EMOJI} | **Support Ticket Created**\n` +
-                                          `> Ticket ${ticketId} was sent to the owner.\n` +
-                                          `> Category: ${SUPPORT_CATEGORIES[category] || category}`
-                                : '**Support Ticket Saved**\n' +
-                                          `Ticket ${ticketId} was created, but I could not DM the owner right now.`,
-                ),
-        ],
-        flags: MessageFlags.IsComponentsV2,
-});
+export const supportSubmittedPayload = (ticketId, category, userId, sent) => {
+        const container = supportContainer(
+                sent > 0
+                        ? `${SUPPORT_EMOJI} | **Support Ticket Created**\n` +
+                                  `> Ticket ${ticketId} was sent to the owner.\n` +
+                                  `> Category: ${SUPPORT_CATEGORIES[category] || category}`
+                        : '**Support Ticket Saved**\n' +
+                                  `Ticket ${ticketId} was created, but I could not DM the owner right now.`,
+        )
+                .addSeparatorComponents(
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                        .setCustomId(
+                                                supportCustomId(
+                                                        'reply',
+                                                        'user',
+                                                        ticketId,
+                                                        userId,
+                                                ),
+                                        )
+                                        .setLabel('Reply')
+                                        .setStyle(ButtonStyle.Secondary),
+                        ),
+                );
+
+        return {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
+        };
+};
 
 export const supportOwnerTicketPayload = (ticket, closed = false) => {
         const container = supportContainer(
@@ -177,6 +199,7 @@ export const supportOwnerTicketPayload = (ticket, closed = false) => {
                                         .setCustomId(
                                                 supportCustomId(
                                                         'reply',
+                                                        'owner',
                                                         ticket.id,
                                                         ticket.userId,
                                                 ),
@@ -209,9 +232,11 @@ export const supportOwnerTicketPayload = (ticket, closed = false) => {
         };
 };
 
-export const supportReplyModal = (ticketId, userId) =>
+export const supportReplyModal = (route, ticketId, userId) =>
         new ModalBuilder()
-                .setCustomId(supportCustomId('replymodal', ticketId, userId))
+                .setCustomId(
+                        supportCustomId('replymodal', route, ticketId, userId),
+                )
                 .setTitle('Support Ticket Reply')
                 .addComponents(
                         new ActionRowBuilder().addComponents(
@@ -227,16 +252,88 @@ export const supportReplyModal = (ticketId, userId) =>
                         ),
                 );
 
-export const supportReplyUserPayload = (ticket, message) => ({
+export const supportReplyUserPayload = (ticket, message) => {
+        const container = supportContainer(
+                `${SUPPORT_EMOJI} | **Support Ticket Reply**\n\n` +
+                        `${DOTS_EMOJI} Ticket: ${ticket.id}\n` +
+                        `${DOTS_EMOJI} Category: ${SUPPORT_CATEGORIES[ticket.category] || ticket.category}\n\n` +
+                        `${CHAT_EMOJI} | Message:\n${quoteBlock(message)}`,
+        )
+                .addSeparatorComponents(
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                        .setCustomId(
+                                                supportCustomId(
+                                                        'reply',
+                                                        'user',
+                                                        ticket.id,
+                                                        ticket.userId,
+                                                ),
+                                        )
+                                        .setLabel('Reply')
+                                        .setStyle(ButtonStyle.Secondary),
+                        ),
+                );
+
+        return {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
+        };
+};
+
+export const supportUserReplyOwnerPayload = (ticket, userTag, message) => ({
         components: [
                 supportContainer(
                         `${SUPPORT_EMOJI} | **Support Ticket Reply**\n\n` +
                                 `${DOTS_EMOJI} Ticket: ${ticket.id}\n` +
+                                `${DOTS_EMOJI} User: ${userTag} (${ticket.userId})\n` +
                                 `${DOTS_EMOJI} Category: ${SUPPORT_CATEGORIES[ticket.category] || ticket.category}\n\n` +
                                 `${CHAT_EMOJI} | Message:\n${quoteBlock(message)}`,
-                ),
+                )
+                        .addSeparatorComponents(
+                                new SeparatorBuilder()
+                                        .setSpacing(
+                                                SeparatorSpacingSize.Small,
+                                        )
+                                        .setDivider(true),
+                        )
+                        .addActionRowComponents(
+                                new ActionRowBuilder().addComponents(
+                                        new ButtonBuilder()
+                                                .setCustomId(
+                                                        supportCustomId(
+                                                                'reply',
+                                                                'owner',
+                                                                ticket.id,
+                                                                ticket.userId,
+                                                        ),
+                                                )
+                                                .setLabel('Reply')
+                                                .setStyle(
+                                                        ButtonStyle.Secondary,
+                                                ),
+                                        new ButtonBuilder()
+                                                .setCustomId(
+                                                        supportCustomId(
+                                                                'close',
+                                                                ticket.id,
+                                                                ticket.userId,
+                                                        ),
+                                                )
+                                                .setLabel('Close Ticket')
+                                                .setStyle(
+                                                        ButtonStyle.Secondary,
+                                                ),
+                                ),
+                        ),
         ],
         flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] },
 });
 
 export const supportClosedUserPayload = (ticket) => ({

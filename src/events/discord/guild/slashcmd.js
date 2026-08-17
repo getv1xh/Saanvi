@@ -45,6 +45,7 @@ import {
         supportReplyUserPayload,
         supportSubmittedPayload,
         supportTicketKey,
+        supportUserReplyOwnerPayload,
         supportOwnerTicketPayload,
 } from '#utils';
 import { CommandContext } from '#context';
@@ -1280,7 +1281,7 @@ const handleSupportTicketModal = async (interaction) => {
 
         const sent = await notifyOwnersOfSupportTicket(interaction, ticket);
         return interaction.reply(
-                supportSubmittedPayload(ticketId, category, sent),
+                supportSubmittedPayload(ticketId, category, userId, sent),
         );
 };
 
@@ -1292,13 +1293,44 @@ const buildFallbackTicket = (ticketId, userId) => ({
         message: 'Ticket data is no longer cached, but this button still has the user id.',
 });
 
-const showSupportReplyModal = async (interaction) => {
-        const [, action, ticketId, userId] = interaction.customId.split(':');
-        if (action !== 'reply') return;
+const parseSupportReplyParts = (customId) => {
+        const [, action, maybeRoute, maybeTicketId, maybeUserId] =
+                customId.split(':');
+        if (action !== 'reply' && action !== 'replymodal') return null;
 
-        if (!isOwner(interaction.user.id)) {
+        if (['owner', 'user'].includes(maybeRoute)) {
+                return {
+                        action,
+                        route: maybeRoute,
+                        ticketId: maybeTicketId,
+                        userId: maybeUserId,
+                };
+        }
+
+        return {
+                action,
+                route: 'owner',
+                ticketId: maybeRoute,
+                userId: maybeTicketId,
+        };
+};
+
+const showSupportReplyModal = async (interaction) => {
+        const parts = parseSupportReplyParts(interaction.customId);
+        if (!parts || parts.action !== 'reply') return;
+
+        const { route, ticketId, userId } = parts;
+
+        if (route === 'owner' && !isOwner(interaction.user.id)) {
                 return interaction.reply({
                         content: 'Only the owner can reply to support tickets.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        if (route === 'user' && interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This support ticket reply belongs to someone else.',
                         flags: MessageFlags.Ephemeral,
                 });
         }
@@ -1310,16 +1342,25 @@ const showSupportReplyModal = async (interaction) => {
                 });
         }
 
-        return interaction.showModal(supportReplyModal(ticketId, userId));
+        return interaction.showModal(supportReplyModal(route, ticketId, userId));
 };
 
 const handleSupportReplyModal = async (interaction) => {
-        const [, action, ticketId, userId] = interaction.customId.split(':');
-        if (action !== 'replymodal') return;
+        const parts = parseSupportReplyParts(interaction.customId);
+        if (!parts || parts.action !== 'replymodal') return;
 
-        if (!isOwner(interaction.user.id)) {
+        const { route, ticketId, userId } = parts;
+
+        if (route === 'owner' && !isOwner(interaction.user.id)) {
                 return interaction.reply({
                         content: 'Only the owner can reply to support tickets.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        if (route === 'user' && interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This support ticket reply belongs to someone else.',
                         flags: MessageFlags.Ephemeral,
                 });
         }
@@ -1340,6 +1381,40 @@ const handleSupportReplyModal = async (interaction) => {
                                 supportTicketKey(ticketId),
                         ),
                 ) || buildFallbackTicket(ticketId, userId);
+
+        if (route === 'user') {
+                let sent = 0;
+                for (const ownerId of config.ownerIds || []) {
+                        try {
+                                const owner =
+                                        await interaction.client.users.fetch(
+                                                ownerId,
+                                        );
+                                await owner.send(
+                                        supportUserReplyOwnerPayload(
+                                                ticket,
+                                                interaction.user.tag,
+                                                message,
+                                        ),
+                                );
+                                sent++;
+                        } catch (error) {
+                                logger.warn(
+                                        'Support',
+                                        `Failed to DM support user reply to owner ${ownerId}: ${error.message}`,
+                                );
+                        }
+                }
+
+                return interaction.reply({
+                        content:
+                                sent > 0
+                                        ? 'Reply sent to the owner.'
+                                        : 'Could not DM the owner. Please contact support manually.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
         const target = await interaction.client.users
                 .fetch(userId)
                 .catch(() => null);
