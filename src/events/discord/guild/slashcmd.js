@@ -864,7 +864,7 @@ const runSuggestReplyGeneration = async ({
         customTone = '',
         changeRequest = '',
         previousReply = '',
-        editOriginal = false,
+        updateOriginal = false,
 }) => {
         const startedAt = Date.now();
 
@@ -872,8 +872,8 @@ const runSuggestReplyGeneration = async ({
                 answer: `${LOADING_EMOJI} **Writing a reply...**`,
         });
 
-        if (editOriginal) {
-                await interaction.editReply(thinkingPayload);
+        if (updateOriginal) {
+                await interaction.update(thinkingPayload);
         } else if (interaction.deferred) {
                 await interaction.editReply(thinkingPayload);
         }
@@ -955,14 +955,13 @@ const handleSuggestReplyToneSelect = async (interaction) => {
                 );
         }
 
-        await interaction.deferUpdate();
         return runSuggestReplyGeneration({
                 interaction,
                 sourceId,
                 userId,
                 source,
                 tone: tone || 'normal',
-                editOriginal: true,
+                updateOriginal: true,
         });
 };
 
