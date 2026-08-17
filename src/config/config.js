@@ -40,6 +40,8 @@ export const config = {
                 askModel: process.env.ASK_MODEL || 'openrouter/auto',
                 askWebModel: process.env.ASK_WEB_MODEL || '',
                 suggestReplyModel: process.env.SUGGEST_REPLY_MODEL || 'google/gemma-4-26b-a4b-it:free',
+                readAloudModel: process.env.READ_ALOUD_MODEL || 'fish-audio/s2.1-pro-free:free',
+                readAloudVoice: process.env.READ_ALOUD_VOICE || 'ce3b16c14af54adebba5ebe50a3d4417',
                 referer: process.env.OPENROUTER_REFERER || '',
                 title: process.env.OPENROUTER_TITLE || 'Saanvi',
                 webEngine: process.env.ASK_WEB_ENGINE || '',

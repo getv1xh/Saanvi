@@ -705,21 +705,8 @@ const formatAskDuration = (ms) => {
         return `${(ms / 1000).toFixed(1)}s`;
 };
 
-const askOpenRouterErrorMessage = (error) => {
-        if (error.message.includes('OPENROUTER_API_KEY')) {
-                return '`OPENROUTER_API_KEY` is missing in the bot environment.';
-        }
-
-        if (error.status === 403 && /limit exceeded/i.test(error.message)) {
-                return 'OpenRouter rejected the request because the API key limit has been exceeded.';
-        }
-
-        if (error.status === 429) {
-                return 'OpenRouter or the selected model is rate-limited right now. Try again later or use a different `/ask` model.';
-        }
-
-        return 'I could not get an answer from OpenRouter right now.';
-};
+const askOpenRouterErrorMessage = () =>
+        'I could not answer that right now. Try again in a bit.';
 
 const parseAskReplyParts = (customId) => {
         const [, action, conversationId, userId] = customId.split(':');
@@ -835,12 +822,9 @@ const handleAskReplyModal = async (interaction) => {
                         `OpenRouter follow-up failed: ${error.message}`,
                         error,
                 );
-                const duration = formatAskDuration(Date.now() - startedAt);
-
                 return interaction.editReply(
                         askResponsePayload({
-                                body: askOpenRouterErrorMessage(error),
-                                footer: `failed after ${duration}`,
+                                body: askOpenRouterErrorMessage(),
                         }),
                 );
         }
@@ -863,17 +847,8 @@ const getSuggestReplySource = async (interaction, sourceId, userId) => {
         return source;
 };
 
-const suggestReplyErrorMessage = (error) => {
-        if (error.message.includes('OPENROUTER_API_KEY')) {
-                return '`OPENROUTER_API_KEY` is missing in the bot environment.';
-        }
-
-        if (error.status === 429) {
-                return 'OpenRouter or the selected model is rate-limited right now. Try again later.';
-        }
-
-        return 'I could not suggest a reply right now.';
-};
+const suggestReplyErrorMessage = () =>
+        'I could not write a reply right now. Try again in a bit.';
 
 const runSuggestReplyGeneration = async ({
         interaction,
@@ -934,12 +909,9 @@ const runSuggestReplyGeneration = async ({
                         `OpenRouter request failed: ${error.message}`,
                         error,
                 );
-                const duration = formatAskDuration(Date.now() - startedAt);
-
                 return interaction.editReply(
                         suggestReplyGeneratedPayload({
-                                answer: suggestReplyErrorMessage(error),
-                                footer: `failed after ${duration}`,
+                                answer: suggestReplyErrorMessage(),
                         }),
                 );
         }

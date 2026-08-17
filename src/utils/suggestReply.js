@@ -116,7 +116,7 @@ export const formatSuggestedReplies = (answer, suggestions = null) => {
                 .filter(Boolean)
                 .slice(0, 4);
 
-        if (!replies.length) return '```I could not suggest a reply right now.```';
+        if (!replies.length) return '```I could not write a reply right now. Try again in a bit.```';
 
         return replies
                 .map((reply) => `\`\`\`\n${codeSafeReply(reply)}\n\`\`\``)

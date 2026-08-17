@@ -1,6 +1,7 @@
 import { config } from '#config';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
 
 export class OpenRouterError extends Error {
         constructor(message, status = null) {
@@ -204,6 +205,28 @@ const requestOpenRouter = async ({ headers, body }) => {
         return data;
 };
 
+const requestOpenRouterSpeech = async ({ headers, body }) => {
+        const response = await fetch(OPENROUTER_SPEECH_URL, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+                const raw = await response.text().catch(() => '');
+                let data = null;
+
+                try {
+                        data = raw ? JSON.parse(raw) : null;
+                } catch {}
+
+                const message = data?.error?.message || raw || response.statusText;
+                throw new OpenRouterError(message, response.status);
+        }
+
+        return Buffer.from(await response.arrayBuffer());
+};
+
 export const askOpenRouter = async ({ question, messages, useWeb = false }) => {
         const model = useWeb
                 ? config.openrouter.askWebModel || config.openrouter.askModel
@@ -311,5 +334,28 @@ export const suggestReplyOpenRouter = async ({
                 answer: trimDiscord(suggestions.join('\n---\n') || answer, 1800),
                 suggestions,
                 model: data?.model || model,
+        };
+};
+
+export const readAloudOpenRouter = async ({ input }) => {
+        const text = trimDiscord(String(input || '').trim(), 1800);
+        if (!text) throw new Error('No readable text.');
+
+        const audio = await requestOpenRouterSpeech({
+                headers: openRouterHeaders(),
+                body: {
+                        model: config.openrouter.readAloudModel,
+                        input: text,
+                        voice: config.openrouter.readAloudVoice,
+                        response_format: 'mp3',
+                },
+        });
+
+        if (!audio.length) throw new Error('Empty audio response.');
+
+        return {
+                audio,
+                model: config.openrouter.readAloudModel,
+                voice: config.openrouter.readAloudVoice,
         };
 };

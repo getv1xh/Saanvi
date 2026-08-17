@@ -16,21 +16,8 @@ const formatDuration = (ms) => {
         return `${(ms / 1000).toFixed(1)}s`;
 };
 
-const openRouterErrorMessage = (error) => {
-        if (error.message.includes('OPENROUTER_API_KEY')) {
-                return '`OPENROUTER_API_KEY` is missing in the bot environment.';
-        }
-
-        if (error.status === 403 && /limit exceeded/i.test(error.message)) {
-                return 'OpenRouter rejected the request because the API key limit has been exceeded.';
-        }
-
-        if (error.status === 429) {
-                return 'OpenRouter or the selected model is rate-limited right now. Try again later or use a different `/ask` model.';
-        }
-
-        return 'I could not get an answer from OpenRouter right now.';
-};
+const openRouterErrorMessage = () =>
+        'I could not answer that right now. Try again in a bit.';
 
 class AskCommand extends Command {
         constructor() {
@@ -55,7 +42,7 @@ class AskCommand extends Command {
                                                 type: ApplicationCommandOptionType.Boolean,
                                                 name: 'web',
                                                 description:
-                                                        'Use web search for current info. This may use OpenRouter credits.',
+                                                        'Use web search for current info.',
                                                 required: false,
                                         },
                                 ],
@@ -124,12 +111,9 @@ class AskCommand extends Command {
                                 `OpenRouter request failed: ${error.message}`,
                                 error,
                         );
-                        const duration = formatDuration(Date.now() - startedAt);
-
                         return ctx.editReply(
                                 askResponsePayload({
-                                        body: openRouterErrorMessage(error),
-                                        footer: `failed after ${duration}`,
+                                        body: openRouterErrorMessage(),
                                 }),
                         );
                 }
