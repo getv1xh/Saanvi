@@ -39,6 +39,7 @@ export const config = {
                 apiKey: process.env.OPENROUTER_API_KEY || '',
                 askModel: process.env.ASK_MODEL || 'openrouter/auto',
                 askWebModel: process.env.ASK_WEB_MODEL || '',
+                suggestReplyModel: process.env.SUGGEST_REPLY_MODEL || 'google/gemma-4-26b-a4b-it:free',
                 referer: process.env.OPENROUTER_REFERER || '',
                 title: process.env.OPENROUTER_TITLE || 'Saanvi',
                 webEngine: process.env.ASK_WEB_ENGINE || '',

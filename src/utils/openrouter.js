@@ -237,7 +237,7 @@ export const suggestReplyOpenRouter = async ({
         changeRequest = '',
         previousReply = '',
 }) => {
-        const model = config.openrouter.askModel;
+        const model = config.openrouter.suggestReplyModel;
         const headers = openRouterHeaders();
         const toneText = tone === 'custom' ? customTone : tone;
 
