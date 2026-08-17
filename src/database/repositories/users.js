@@ -157,6 +157,26 @@ export class UserRepository {
                 return { collection, item, duplicate: existingIndex >= 0 };
         }
 
+        async deleteBookmarkCollection(userId, collectionId) {
+                const user = await this.findOrCreate(userId);
+                const bookmarks = normaliseBookmarks(user.bookmarks);
+                const collectionIndex = bookmarks.collections.findIndex(
+                        (entry) => entry.id === collectionId,
+                );
+
+                if (collectionIndex < 0) {
+                        const error = new Error('Bookmark collection not found.');
+                        error.code = 'BOOKMARK_COLLECTION_NOT_FOUND';
+                        throw error;
+                }
+
+                const [collection] = bookmarks.collections.splice(collectionIndex, 1);
+                await User.findByIdAndUpdate(userId, { $set: { bookmarks } });
+                await client.c.del(`${CACHE_PREFIX}${userId}`);
+
+                return collection;
+        }
+
         async getPremiumExpiresAt(userId) {
                 const user = await this.findById(userId);
                 return user?.premiumExpiresAt ?? null;

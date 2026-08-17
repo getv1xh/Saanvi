@@ -21,6 +21,9 @@ export const BOOKMARK_CREATE_PREFIX = `${BOOKMARK_PREFIX}create`;
 export const BOOKMARK_CREATE_MODAL_PREFIX = `${BOOKMARK_PREFIX}createmodal`;
 export const BOOKMARK_LIST_SELECT_PREFIX = `${BOOKMARK_PREFIX}list`;
 export const BOOKMARK_PAGE_PREFIX = `${BOOKMARK_PREFIX}page`;
+export const BOOKMARK_DELETE_PREFIX = `${BOOKMARK_PREFIX}delete`;
+export const BOOKMARK_DELETE_CONFIRM_PREFIX = `${BOOKMARK_PREFIX}deleteconfirm`;
+export const BOOKMARK_DELETE_CANCEL_PREFIX = `${BOOKMARK_PREFIX}deletecancel`;
 export const BOOKMARK_NAME_INPUT_ID = 'bookmark_collection_name';
 export const BOOKMARK_SOURCE_TTL_SECONDS = 300;
 export const MAX_BOOKMARK_COLLECTIONS = 4;
@@ -353,6 +356,21 @@ const pageNavRow = ({ collectionId, page, totalPages, userId }) =>
                         .setDisabled(page >= totalPages),
         );
 
+const collectionActionRow = ({ collectionId, page, userId }) =>
+        new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                        .setCustomId(
+                                customId(
+                                        BOOKMARK_DELETE_PREFIX,
+                                        collectionId,
+                                        page,
+                                        userId,
+                                ),
+                        )
+                        .setLabel('Delete Collection')
+                        .setStyle(ButtonStyle.Danger),
+        );
+
 export const bookmarksCollectionPagePayload = ({
         collection,
         page = 1,
@@ -411,6 +429,82 @@ export const bookmarksCollectionPagePayload = ({
                         }),
                 );
         }
+
+        container.addActionRowComponents(
+                collectionActionRow({
+                        collectionId: collection.id,
+                        page: currentPage,
+                        userId,
+                }),
+        );
+
+        return {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                allowedMentions: { parse: [] },
+        };
+};
+
+export const bookmarkDeleteConfirmPayload = ({
+        collection,
+        page = 1,
+        userId,
+}) => {
+        const count = collection?.items?.length || 0;
+        const container = new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                `${WARN_ICON} **Delete Collection?**\n` +
+                                        `This will permanently delete **${collection.name}** and ${count} saved message${count === 1 ? '' : 's'}.`,
+                        ),
+                )
+                .addSeparatorComponents(
+                        new SeparatorBuilder()
+                                .setSpacing(SeparatorSpacingSize.Small)
+                                .setDivider(true),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                        .setCustomId(
+                                                customId(
+                                                        BOOKMARK_DELETE_CONFIRM_PREFIX,
+                                                        collection.id,
+                                                        userId,
+                                                ),
+                                        )
+                                        .setLabel('Confirm Delete')
+                                        .setStyle(ButtonStyle.Danger),
+                                new ButtonBuilder()
+                                        .setCustomId(
+                                                customId(
+                                                        BOOKMARK_DELETE_CANCEL_PREFIX,
+                                                        collection.id,
+                                                        page,
+                                                        userId,
+                                                ),
+                                        )
+                                        .setLabel('Cancel')
+                                        .setStyle(ButtonStyle.Secondary),
+                        ),
+                );
+
+        return {
+                components: [container],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                allowedMentions: { parse: [] },
+        };
+};
+
+export const bookmarkDeletedPayload = (collectionName) => {
+        const container = new ContainerBuilder()
+                .setAccentColor(0xffffff)
+                .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                                `${BOOKMARK_ICON} **Collection Deleted**\nDeleted **${collectionName}**.`,
+                        ),
+                );
 
         return {
                 components: [container],

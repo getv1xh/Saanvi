@@ -33,6 +33,10 @@ export class UserService {
                 return await this.repo.addBookmarkToCollection(userId, collectionId, bookmark);
         }
 
+        async deleteBookmarkCollection(userId, collectionId) {
+                return await this.repo.deleteBookmarkCollection(userId, collectionId);
+        }
+
         async isPremium(userId) {
                 return await this.repo.isPremium(userId);
         }

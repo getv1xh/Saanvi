@@ -54,11 +54,16 @@ import {
         SUGGEST_REPLY_TONE_PREFIX,
         BOOKMARK_CREATE_MODAL_PREFIX,
         BOOKMARK_CREATE_PREFIX,
+        BOOKMARK_DELETE_CANCEL_PREFIX,
+        BOOKMARK_DELETE_CONFIRM_PREFIX,
+        BOOKMARK_DELETE_PREFIX,
         BOOKMARK_LIST_SELECT_PREFIX,
         BOOKMARK_NAME_INPUT_ID,
         BOOKMARK_PAGE_PREFIX,
         BOOKMARK_SAVE_SELECT_PREFIX,
         bookmarkCreateCollectionModal,
+        bookmarkDeleteConfirmPayload,
+        bookmarkDeletedPayload,
         bookmarkExpiredPayload,
         bookmarkLimitPayload,
         bookmarkSavedPayload,
@@ -2212,6 +2217,89 @@ const handleBookmarksPageButton = async (interaction) => {
         );
 };
 
+const showBookmarkDeleteConfirm = async (interaction) => {
+        const [, action, collectionId, page, userId] =
+                interaction.customId.split(':');
+        if (action !== 'delete') return;
+        if (!ensureBookmarkOwner(interaction, userId)) return;
+
+        const bookmarks = await db.user.getBookmarks(userId);
+        const collection = bookmarks.collections.find(
+                (entry) => entry.id === collectionId,
+        );
+
+        if (!collection) {
+                return interaction.update(
+                        bookmarksCollectionMenuPayload(
+                                bookmarks.collections,
+                                userId,
+                        ),
+                );
+        }
+
+        return interaction.update(
+                bookmarkDeleteConfirmPayload({
+                        collection,
+                        page,
+                        userId,
+                }),
+        );
+};
+
+const handleBookmarkDeleteConfirm = async (interaction) => {
+        const [, action, collectionId, userId] = interaction.customId.split(':');
+        if (action !== 'deleteconfirm') return;
+        if (!ensureBookmarkOwner(interaction, userId)) return;
+
+        try {
+                const collection = await db.user.deleteBookmarkCollection(
+                        userId,
+                        collectionId,
+                );
+                return interaction.update(bookmarkDeletedPayload(collection.name));
+        } catch (error) {
+                if (error.code === 'BOOKMARK_COLLECTION_NOT_FOUND') {
+                        const bookmarks = await db.user.getBookmarks(userId);
+                        return interaction.update(
+                                bookmarksCollectionMenuPayload(
+                                        bookmarks.collections,
+                                        userId,
+                                ),
+                        );
+                }
+                throw error;
+        }
+};
+
+const handleBookmarkDeleteCancel = async (interaction) => {
+        const [, action, collectionId, page, userId] =
+                interaction.customId.split(':');
+        if (action !== 'deletecancel') return;
+        if (!ensureBookmarkOwner(interaction, userId)) return;
+
+        const bookmarks = await db.user.getBookmarks(userId);
+        const collection = bookmarks.collections.find(
+                (entry) => entry.id === collectionId,
+        );
+
+        if (!collection) {
+                return interaction.update(
+                        bookmarksCollectionMenuPayload(
+                                bookmarks.collections,
+                                userId,
+                        ),
+                );
+        }
+
+        return interaction.update(
+                bookmarksCollectionPagePayload({
+                        collection,
+                        page,
+                        userId,
+                }),
+        );
+};
+
 const handleMessageComponent = async (interaction) => {
         if (
                 ![ComponentType.Button, ComponentType.StringSelect].includes(
@@ -2255,6 +2343,16 @@ const handleMessageComponent = async (interaction) => {
                 await handleBookmarksListSelect(interaction);
         } else if (interaction.customId.startsWith(BOOKMARK_PAGE_PREFIX)) {
                 await handleBookmarksPageButton(interaction);
+        } else if (
+                interaction.customId.startsWith(BOOKMARK_DELETE_CONFIRM_PREFIX)
+        ) {
+                await handleBookmarkDeleteConfirm(interaction);
+        } else if (
+                interaction.customId.startsWith(BOOKMARK_DELETE_CANCEL_PREFIX)
+        ) {
+                await handleBookmarkDeleteCancel(interaction);
+        } else if (interaction.customId.startsWith(BOOKMARK_DELETE_PREFIX)) {
+                await showBookmarkDeleteConfirm(interaction);
         } else if (interaction.customId.startsWith(SUPPORT_CLOSE_PREFIX)) {
                 await handleSupportCloseButton(interaction);
         } else if (interaction.customId.startsWith('addy_qr:')) {
