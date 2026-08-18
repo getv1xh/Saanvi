@@ -448,6 +448,57 @@ export const explainMessageOpenRouter = async ({
         };
 };
 
+export const translateMessageOpenRouter = async ({
+        sourceMessage,
+        targetLanguage = 'English',
+        changeRequest = '',
+        previousTranslation = '',
+}) => {
+        const model = config.openrouter.suggestReplyModel;
+        const headers = openRouterHeaders();
+        const language = trimDiscord(
+                String(targetLanguage || 'English').trim(),
+                80,
+        );
+
+        const body = createRequestBody({
+                model,
+                temperature: 0.2,
+                systemPrompt:
+                        'You translate Discord messages accurately. Return only the translated text. ' +
+                        'Do not explain, add labels, use markdown code fences, or mention that you are an AI. ' +
+                        'Preserve names, URLs, IDs, numbers, formatting meaning, profanity intensity, and the original intent. ' +
+                        'If the message is already in the target language, lightly clean obvious typos only when needed and keep the meaning unchanged.',
+                messages: [
+                        {
+                                role: 'user',
+                                content:
+                                        `Message author: ${sourceMessage.author || 'Unknown'}\n` +
+                                        `Target language: ${language || 'English'}\n` +
+                                        `Message:\n${sourceMessage.content}\n\n` +
+                                        (previousTranslation
+                                                ? `Previous translation:\n${previousTranslation}\n\n`
+                                                : '') +
+                                        (changeRequest
+                                                ? `Changes requested:\n${changeRequest}\n\n`
+                                                : '') +
+                                        `Translate the message to ${language || 'English'}. Keep it natural and Discord-friendly.`,
+                        },
+                ],
+        });
+
+        const data = await requestOpenRouter({ headers, body });
+        const message = data?.choices?.[0]?.message;
+        const answer = normalizeContent(message?.content).trim();
+
+        if (!answer) throw new Error('OpenRouter returned an empty response.');
+
+        return {
+                answer: trimDiscord(answer, 1700),
+                model: data?.model || model,
+        };
+};
+
 export const calculateOpenRouter = async ({ expression }) => {
         const model = config.openrouter.askModel;
         const headers = openRouterHeaders();

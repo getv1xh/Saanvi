@@ -14,6 +14,7 @@ export * from './askConversation.js';
 export * from './suggestReply.js';
 export * from './refineMessage.js';
 export * from './explainMessage.js';
+export * from './translateMessage.js';
 export * from './bookmarks.js';
 export * from './premiumPrompt.js';
 export * from './supportTickets.js';

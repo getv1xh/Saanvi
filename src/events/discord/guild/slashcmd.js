@@ -103,6 +103,20 @@ import {
         parseStoredExplainMessageSource,
         scheduleExplainMessageButtonRemoval,
         storeExplainMessageSource,
+        TRANSLATE_MESSAGE_CHANGES_INPUT_ID,
+        TRANSLATE_MESSAGE_LANGUAGE_INPUT_ID,
+        TRANSLATE_MESSAGE_LANGUAGE_MODAL_PREFIX,
+        TRANSLATE_MESSAGE_LANGUAGE_PREFIX,
+        TRANSLATE_MESSAGE_RETRY_MODAL_PREFIX,
+        TRANSLATE_MESSAGE_RETRY_PREFIX,
+        parseStoredTranslateMessageSource,
+        scheduleTranslateMessageButtonRemoval,
+        storeTranslateMessageSource,
+        translateMessageLanguageModal,
+        translateMessageOpenRouter,
+        translateMessagePayload,
+        translateMessageRetryModal,
+        translateMessageSourceKey,
         createSupportTicketId,
         supportActiveKey,
         supportAlreadyOpenPayload,
@@ -1500,6 +1514,245 @@ const handleExplainMessageRetryModal = async (interaction) => {
         });
 };
 
+const parseTranslateMessageParts = (customId) => {
+        const [, action, sourceId, userId] = customId.split(':');
+        if (
+                !['language', 'retry', 'languagemodal', 'retrymodal'].includes(
+                        action,
+                )
+        ) {
+                return null;
+        }
+        return { action, sourceId, userId };
+};
+
+const getTranslateMessageSource = async (interaction, sourceId, userId) => {
+        const source = parseStoredTranslateMessageSource(
+                await interaction.client.c.get(
+                        translateMessageSourceKey(sourceId),
+                ),
+        );
+
+        if (!source || source.userId !== userId) return null;
+        return source;
+};
+
+const translateMessageErrorMessage = () =>
+        'I could not translate that right now. Try again in a bit.';
+
+const runTranslateMessageGeneration = async ({
+        interaction,
+        sourceId,
+        userId,
+        source,
+        targetLanguage = 'English',
+        changeRequest = '',
+        previousTranslation = '',
+}) => {
+        const startedAt = Date.now();
+
+        if (interaction.deferred) {
+                await interaction.editReply(
+                        translateMessagePayload({
+                                status: `Translating to ${targetLanguage}...`,
+                        }),
+                );
+        }
+
+        try {
+                const result = await translateMessageOpenRouter({
+                        sourceMessage: source,
+                        targetLanguage,
+                        changeRequest,
+                        previousTranslation,
+                });
+                const duration = formatAskDuration(Date.now() - startedAt);
+
+                await storeTranslateMessageSource(
+                        interaction.client,
+                        sourceId,
+                        {
+                                ...source,
+                                targetLanguage,
+                                previousTranslation: result.answer,
+                        },
+                );
+
+                const payloadOptions = {
+                        translation: result.answer,
+                        targetLanguage,
+                        footer: `generated in ${duration}`,
+                        sourceId,
+                        userId,
+                        includeButtons: true,
+                };
+                const reply = await interaction.editReply(
+                        translateMessagePayload(payloadOptions),
+                );
+                scheduleTranslateMessageButtonRemoval(reply, payloadOptions);
+                return reply;
+        } catch (error) {
+                logger.error(
+                        'TranslateMessage',
+                        `OpenRouter request failed: ${error.message}`,
+                        error,
+                );
+                return interaction.editReply(
+                        translateMessagePayload({
+                                translation: translateMessageErrorMessage(),
+                        }),
+                );
+        }
+};
+
+const showTranslateMessageLanguageModal = async (interaction) => {
+        const parts = parseTranslateMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'language') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This translate button belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getTranslateMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This translation has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.showModal(
+                translateMessageLanguageModal(sourceId, userId),
+        );
+};
+
+const showTranslateMessageRetryModal = async (interaction) => {
+        const parts = parseTranslateMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'retry') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This retry button belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getTranslateMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This translation has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.showModal(
+                translateMessageRetryModal(sourceId, userId),
+        );
+};
+
+const handleTranslateMessageLanguageModal = async (interaction) => {
+        const parts = parseTranslateMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'languagemodal') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This language form belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getTranslateMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This translation has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const targetLanguage = interaction.fields
+                .getTextInputValue(TRANSLATE_MESSAGE_LANGUAGE_INPUT_ID)
+                ?.trim();
+        if (!targetLanguage) {
+                return interaction.reply({
+                        content: 'Please enter a language.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        return runTranslateMessageGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                targetLanguage,
+        });
+};
+
+const handleTranslateMessageRetryModal = async (interaction) => {
+        const parts = parseTranslateMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'retrymodal') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This retry form belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getTranslateMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This translation has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const changeRequest = interaction.fields
+                .getTextInputValue(TRANSLATE_MESSAGE_CHANGES_INPUT_ID)
+                ?.trim();
+        if (!changeRequest) {
+                return interaction.reply({
+                        content: 'Please describe what to change.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        return runTranslateMessageGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                targetLanguage: source.targetLanguage || 'English',
+                changeRequest,
+                previousTranslation: source.previousTranslation || '',
+        });
+};
+
 const followUpButton = (route, userId, plan, method) =>
         new ButtonBuilder()
                 .setCustomId(
@@ -2744,6 +2997,16 @@ const handleMessageComponent = async (interaction) => {
         ) {
                 await showExplainMessageRetryModal(interaction);
         } else if (
+                interaction.customId.startsWith(
+                        TRANSLATE_MESSAGE_LANGUAGE_PREFIX,
+                )
+        ) {
+                await showTranslateMessageLanguageModal(interaction);
+        } else if (
+                interaction.customId.startsWith(TRANSLATE_MESSAGE_RETRY_PREFIX)
+        ) {
+                await showTranslateMessageRetryModal(interaction);
+        } else if (
                 interaction.customId.startsWith(BOOKMARK_SAVE_SELECT_PREFIX)
         ) {
                 await handleBookmarkSaveSelect(interaction);
@@ -2873,6 +3136,22 @@ export default {
                                         )
                                 ) {
                                         await handleExplainMessageRetryModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                TRANSLATE_MESSAGE_LANGUAGE_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleTranslateMessageLanguageModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                TRANSLATE_MESSAGE_RETRY_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleTranslateMessageRetryModal(
                                                 interaction,
                                         );
                                 } else if (
