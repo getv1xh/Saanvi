@@ -3,7 +3,6 @@ import {
         ButtonBuilder,
         ButtonStyle,
         ContainerBuilder,
-        FileBuilder,
         MessageFlags,
         ModalBuilder,
         SeparatorBuilder,
@@ -16,9 +15,11 @@ import { defaultCartesiaSettings } from './cartesia.js';
 
 export const TTS_CARTESIA_SETTINGS_PREFIX = 'tts:cartesia-settings';
 export const TTS_CARTESIA_SETTINGS_MODAL_PREFIX = 'tts:cartesia-settings-modal';
+export const TTS_PROVIDER_PREFIX = 'tts:provider';
 export const TTS_CARTESIA_API_KEY_INPUT_ID = 'tts_cartesia_api_key';
 export const TTS_CARTESIA_VOICE_INPUT_ID = 'tts_cartesia_voice';
 export const TTS_CARTESIA_MODEL_INPUT_ID = 'tts_cartesia_model';
+export const TTS_REQUEST_TTL_SECONDS = 180;
 
 const ttsCustomId = (...parts) =>
         parts
@@ -27,6 +28,33 @@ const ttsCustomId = (...parts) =>
                 .join(':');
 
 const text = (content) => new TextDisplayBuilder().setContent(content);
+
+export const createTtsRequestId = () =>
+        `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+export const ttsRequestKey = (requestId) => `tts:request:${requestId}`;
+
+export const parseStoredTtsRequest = (raw) => {
+        if (!raw) return null;
+        if (typeof raw === 'object') return raw;
+
+        try {
+                return JSON.parse(raw);
+        } catch {
+                return null;
+        }
+};
+
+export const storeTtsRequest = async (client, requestId, request) => {
+        await client.c.set(
+                ttsRequestKey(requestId),
+                JSON.stringify({
+                        ...request,
+                        updatedAt: Date.now(),
+                }),
+                TTS_REQUEST_TTL_SECONDS,
+        );
+};
 
 export const ttsStatusPayload = ({
         body,
@@ -46,25 +74,51 @@ export const ttsStatusPayload = ({
         };
 };
 
-export const ttsAudioPayload = ({
-        attachment,
-        duration,
-        filename,
-}) => {
+export const ttsProviderPayload = ({ requestId, userId }) => {
         const container = new ContainerBuilder()
                 .setAccentColor(0xffffff)
-                .addTextDisplayComponents(text(`**Generated in ${duration}**`))
-                .addFileComponents(
-                        new FileBuilder({
-                                file: { url: `attachment://${filename}` },
-                        }),
+                .addTextDisplayComponents(
+                        text('**TTS**\nChoose a voice provider.'),
+                )
+                .addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                        .setCustomId(
+                                                ttsCustomId(
+                                                        TTS_PROVIDER_PREFIX,
+                                                        'fish',
+                                                        requestId,
+                                                        userId,
+                                                ),
+                                        )
+                                        .setLabel('Fish Audio')
+                                        .setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder()
+                                        .setCustomId(
+                                                ttsCustomId(
+                                                        TTS_PROVIDER_PREFIX,
+                                                        'cartesia',
+                                                        requestId,
+                                                        userId,
+                                                ),
+                                        )
+                                        .setLabel('Cartesia')
+                                        .setStyle(ButtonStyle.Secondary),
+                        ),
                 );
 
         return {
                 components: [container],
-                flags: MessageFlags.IsComponentsV2,
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
                 allowedMentions: { parse: [] },
+        };
+};
+
+export const ttsAudioPayload = ({ attachment, duration }) => {
+        return {
+                content: `Generated in ${duration}`,
                 files: [attachment],
+                allowedMentions: { parse: [] },
         };
 };
 

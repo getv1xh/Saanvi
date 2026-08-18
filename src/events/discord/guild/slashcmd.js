@@ -41,6 +41,7 @@ import {
         TTS_CARTESIA_SETTINGS_MODAL_PREFIX,
         TTS_CARTESIA_SETTINGS_PREFIX,
         TTS_CARTESIA_VOICE_INPUT_ID,
+        TTS_PROVIDER_PREFIX,
         ASK_REPLY_MESSAGE_INPUT_ID,
         ASK_REPLY_MODAL_PREFIX,
         ASK_REPLY_PREFIX,
@@ -134,7 +135,14 @@ import {
         supportUserReplyOwnerPayload,
         supportOwnerTicketPayload,
         cartesiaSetupRequiredPayload,
+        cartesiaSettingsPromptPayload,
         cartesiaSettingsModal,
+        defaultCartesiaSettings,
+        parseStoredTtsRequest,
+        readAloudOpenRouter,
+        synthesizeCartesiaSpeech,
+        ttsAudioPayload,
+        ttsRequestKey,
         ttsStatusPayload,
 } from '#utils';
 import { CommandContext } from '#context';
@@ -2975,6 +2983,132 @@ const ensureTtsOwner = (interaction, userId) => {
         return false;
 };
 
+const formatTtsDuration = (ms) => {
+        if (ms < 1000) return `${ms}ms`;
+        return `${(ms / 1000).toFixed(1)}s`;
+};
+
+const missingCartesiaSettings = (settings) => {
+        const missing = [];
+        if (!settings.apiKey) missing.push('API key');
+        if (!settings.voice) missing.push('voice ID');
+        if (!settings.model) missing.push('model');
+        return missing;
+};
+
+const mergeCartesiaSettings = (stored) => {
+        const defaults = defaultCartesiaSettings();
+        return {
+                apiKey: stored?.apiKey || null,
+                voice: stored?.voice || defaults.voice,
+                model: stored?.model || defaults.model,
+        };
+};
+
+const handleTtsProviderButton = async (interaction) => {
+        const [, , provider, requestId, userId] = interaction.customId.split(':');
+        if (!ensureTtsOwner(interaction, userId)) return;
+
+        const request = parseStoredTtsRequest(
+                await interaction.client.c.get(ttsRequestKey(requestId)),
+        );
+
+        if (!request || request.userId !== userId || !request.input) {
+                return interaction.update(
+                        ttsStatusPayload({
+                                body: '**That TTS request expired.**\nRun `/tts` again.',
+                        }),
+                );
+        }
+
+        const startedAt = Date.now();
+        await interaction.client.c.del(ttsRequestKey(requestId)).catch(() => {});
+
+        await interaction.update(
+                ttsStatusPayload({
+                        body: '<a:loading:1538534708739051562> **Generating speech...**',
+                }),
+        );
+
+        try {
+                if (provider === 'cartesia') {
+                        const stored = await db.user.getTtsSettings(userId);
+                        const settings = mergeCartesiaSettings(stored?.cartesia);
+                        const missing = missingCartesiaSettings(settings);
+
+                        if (missing.length) {
+                                return interaction.editReply(
+                                        cartesiaSetupRequiredPayload({
+                                                userId,
+                                                missing,
+                                        }),
+                                );
+                        }
+
+                        const result = await synthesizeCartesiaSpeech({
+                                apiKey: settings.apiKey,
+                                input: request.input,
+                                model: settings.model,
+                                voice: settings.voice,
+                        });
+                        const filename = `tts-cartesia-${interaction.id}.wav`;
+                        const attachment = new AttachmentBuilder(result.audio, {
+                                name: filename,
+                        });
+
+                        await interaction.followUp(
+                                ttsAudioPayload({
+                                        attachment,
+                                        duration: formatTtsDuration(
+                                                Date.now() - startedAt,
+                                        ),
+                                }),
+                        );
+
+                        return interaction.editReply(
+                                cartesiaSettingsPromptPayload({ userId }),
+                        );
+                }
+
+                const result = await readAloudOpenRouter({
+                        input: request.input,
+                });
+                const filename = `tts-fish-${interaction.id}.mp3`;
+                const attachment = new AttachmentBuilder(result.audio, {
+                        name: filename,
+                });
+
+                await interaction.followUp(
+                        ttsAudioPayload({
+                                attachment,
+                                duration: formatTtsDuration(
+                                        Date.now() - startedAt,
+                                ),
+                        }),
+                );
+
+                return interaction.editReply(
+                        ttsStatusPayload({
+                                body: '**Done.**',
+                        }),
+                );
+        } catch (error) {
+                logger.error(
+                        'TTS',
+                        `Speech request failed: ${error.message}`,
+                        error,
+                );
+
+                return interaction.editReply(
+                        ttsStatusPayload({
+                                body:
+                                        '**I could not generate that audio right now.**\n' +
+                                        'Check the provider settings and try again.',
+                        }),
+                );
+        }
+};
+
 const showCartesiaSettingsModal = async (interaction) => {
         const [, , userId] = interaction.customId.split(':');
         if (!ensureTtsOwner(interaction, userId)) return;
@@ -3104,6 +3238,8 @@ const handleMessageComponent = async (interaction) => {
                 await showBookmarkDeleteConfirm(interaction);
         } else if (interaction.customId.startsWith(SUPPORT_CLOSE_PREFIX)) {
                 await handleSupportCloseButton(interaction);
+        } else if (interaction.customId.startsWith(TTS_PROVIDER_PREFIX)) {
+                await handleTtsProviderButton(interaction);
         } else if (
                 interaction.customId.startsWith(TTS_CARTESIA_SETTINGS_PREFIX)
         ) {
