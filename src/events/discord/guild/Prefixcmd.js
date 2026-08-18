@@ -24,7 +24,7 @@ import {
 import { emoji } from '#emoji';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BANNER = path.join(__dirname, '../../../assets', 'help_banner.png');
+const BANNER = path.join(__dirname, '../../../assets', 'help_banner.jpg');
 
 const regexCache = new Map();
 
@@ -206,7 +206,7 @@ const handleMentionOnly = async (message, client, guildPrefixes) => {
                 mentionContainer
                         .addMediaGalleryComponents(
                                 new MediaGalleryBuilder().addItems(
-                                        new MediaGalleryItemBuilder().setURL('attachment://help_banner.png'),
+                                        new MediaGalleryItemBuilder().setURL('attachment://help_banner.jpg'),
                                 ),
                         )
                         .addTextDisplayComponents(mentionContent);
@@ -214,7 +214,7 @@ const handleMentionOnly = async (message, client, guildPrefixes) => {
                 await message
                         .reply({
                                 components: [mentionContainer],
-                                files:      [new AttachmentBuilder(BANNER, { name: 'help_banner.png' })],
+                                files:      [new AttachmentBuilder(BANNER, { name: 'help_banner.jpg' })],
                                 flags:      MessageFlags.IsComponentsV2,
                         })
                         .catch(() => {});

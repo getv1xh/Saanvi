@@ -21,7 +21,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BANNER = path.join(__dirname, '../../assets', 'help_banner.png');
+const BANNER = path.join(__dirname, '../../assets', 'help_banner.jpg');
 
 let _cmdMapCache = null;
 async function getCmdMap(client) {
@@ -133,7 +133,7 @@ function buildPage(page, cmdMap, userId) {
                 .setAccentColor(0xffffff)
                 .addMediaGalleryComponents(
                         new MediaGalleryBuilder().addItems(
-                                new MediaGalleryItemBuilder().setURL('attachment://help_banner.png'),
+                                new MediaGalleryItemBuilder().setURL('attachment://help_banner.jpg'),
                         ),
                 )
                 .addSeparatorComponents(
@@ -149,7 +149,7 @@ function buildPage(page, cmdMap, userId) {
 }
 
 function banner() {
-        return new AttachmentBuilder(BANNER, { name: 'help_banner.png' });
+        return new AttachmentBuilder(BANNER, { name: 'help_banner.jpg' });
 }
 
 class HelpCommand extends Command {

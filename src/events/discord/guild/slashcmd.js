@@ -58,6 +58,9 @@ import {
         REFINE_MESSAGE_RETRY_MODAL_PREFIX,
         REFINE_MESSAGE_RETRY_PREFIX,
         REFINE_MESSAGE_TONE_PREFIX,
+        EXPLAIN_MESSAGE_CHANGES_INPUT_ID,
+        EXPLAIN_MESSAGE_RETRY_MODAL_PREFIX,
+        EXPLAIN_MESSAGE_RETRY_PREFIX,
         BOOKMARK_CREATE_MODAL_PREFIX,
         BOOKMARK_CREATE_PREFIX,
         BOOKMARK_DELETE_CANCEL_PREFIX,
@@ -93,6 +96,13 @@ import {
         refineMessageSourceKey,
         scheduleRefineMessageButtonRemoval,
         storeRefineMessageSource,
+        explainMessageOpenRouter,
+        explainMessagePayload,
+        explainMessageRetryModal,
+        explainMessageSourceKey,
+        parseStoredExplainMessageSource,
+        scheduleExplainMessageButtonRemoval,
+        storeExplainMessageSource,
         createSupportTicketId,
         supportActiveKey,
         supportAlreadyOpenPayload,
@@ -1339,6 +1349,157 @@ const handleRefineMessageRetryModal = async (interaction) => {
         });
 };
 
+const parseExplainMessageParts = (customId) => {
+        const [, action, sourceId, userId] = customId.split(':');
+        if (!['retry', 'retrymodal'].includes(action)) return null;
+        return { action, sourceId, userId };
+};
+
+const getExplainMessageSource = async (interaction, sourceId, userId) => {
+        const source = parseStoredExplainMessageSource(
+                await interaction.client.c.get(
+                        explainMessageSourceKey(sourceId),
+                ),
+        );
+
+        if (!source || source.userId !== userId) return null;
+        return source;
+};
+
+const explainMessageErrorMessage = () =>
+        'I could not explain that right now. Try again in a bit.';
+
+const runExplainMessageGeneration = async ({
+        interaction,
+        sourceId,
+        userId,
+        source,
+        changeRequest = '',
+        previousExplanation = '',
+}) => {
+        const startedAt = Date.now();
+
+        if (interaction.deferred) {
+                await interaction.editReply(
+                        explainMessagePayload({
+                                status: 'Explaining the message...',
+                        }),
+                );
+        }
+
+        try {
+                const result = await explainMessageOpenRouter({
+                        sourceMessage: source,
+                        changeRequest,
+                        previousExplanation,
+                });
+                const duration = formatAskDuration(Date.now() - startedAt);
+
+                await storeExplainMessageSource(interaction.client, sourceId, {
+                        ...source,
+                        previousExplanation: result.answer,
+                });
+
+                const payloadOptions = {
+                        body: result.answer,
+                        footer: `generated in ${duration}`,
+                        sourceId,
+                        userId,
+                        includeRetryButton: true,
+                };
+                const reply = await interaction.editReply(
+                        explainMessagePayload(payloadOptions),
+                );
+                scheduleExplainMessageButtonRemoval(reply, payloadOptions);
+                return reply;
+        } catch (error) {
+                logger.error(
+                        'ExplainMessage',
+                        `OpenRouter request failed: ${error.message}`,
+                        error,
+                );
+                return interaction.editReply(
+                        explainMessagePayload({
+                                body: explainMessageErrorMessage(),
+                        }),
+                );
+        }
+};
+
+const showExplainMessageRetryModal = async (interaction) => {
+        const parts = parseExplainMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'retry') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This retry button belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getExplainMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This explanation has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.showModal(
+                explainMessageRetryModal(sourceId, userId),
+        );
+};
+
+const handleExplainMessageRetryModal = async (interaction) => {
+        const parts = parseExplainMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'retrymodal') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This retry form belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getExplainMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This explanation has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const changeRequest = interaction.fields
+                .getTextInputValue(EXPLAIN_MESSAGE_CHANGES_INPUT_ID)
+                ?.trim();
+        if (!changeRequest) {
+                return interaction.reply({
+                        content: 'Please describe what to change.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        return runExplainMessageGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                changeRequest,
+                previousExplanation: source.previousExplanation || '',
+        });
+};
+
 const followUpButton = (route, userId, plan, method) =>
         new ButtonBuilder()
                 .setCustomId(
@@ -2579,6 +2740,10 @@ const handleMessageComponent = async (interaction) => {
         ) {
                 await showRefineMessageRetryModal(interaction);
         } else if (
+                interaction.customId.startsWith(EXPLAIN_MESSAGE_RETRY_PREFIX)
+        ) {
+                await showExplainMessageRetryModal(interaction);
+        } else if (
                 interaction.customId.startsWith(BOOKMARK_SAVE_SELECT_PREFIX)
         ) {
                 await handleBookmarkSaveSelect(interaction);
@@ -2700,6 +2865,14 @@ export default {
                                         )
                                 ) {
                                         await handleRefineMessageRetryModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                EXPLAIN_MESSAGE_RETRY_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleExplainMessageRetryModal(
                                                 interaction,
                                         );
                                 } else if (

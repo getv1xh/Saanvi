@@ -404,6 +404,83 @@ export const refineMessageOpenRouter = async ({
         };
 };
 
+export const explainMessageOpenRouter = async ({
+        sourceMessage,
+        changeRequest = '',
+        previousExplanation = '',
+}) => {
+        const model = config.openrouter.suggestReplyModel;
+        const headers = openRouterHeaders();
+
+        const body = createRequestBody({
+                model,
+                temperature: 0.35,
+                systemPrompt:
+                        'You explain confusing Discord messages in simple, small language. ' +
+                        'Keep the explanation short enough to understand quickly, especially when the original message is long. ' +
+                        'Do not quote the full original message, add labels, use markdown code fences, or mention that you are an AI.',
+                messages: [
+                        {
+                                role: 'user',
+                                content:
+                                        `Message author: ${sourceMessage.author || 'Unknown'}\n` +
+                                        `Message:\n${sourceMessage.content}\n\n` +
+                                        (previousExplanation
+                                                ? `Previous explanation:\n${previousExplanation}\n\n`
+                                                : '') +
+                                        (changeRequest
+                                                ? `Changes requested:\n${changeRequest}\n\n`
+                                                : '') +
+                                        'Explain the message simply in 1-4 short sentences. If there is slang, hidden meaning, or confusing context, explain that plainly. Keep it Discord-friendly.',
+                        },
+                ],
+        });
+
+        const data = await requestOpenRouter({ headers, body });
+        const message = data?.choices?.[0]?.message;
+        const answer = normalizeContent(message?.content).trim();
+
+        if (!answer) throw new Error('OpenRouter returned an empty response.');
+
+        return {
+                answer: trimDiscord(answer, 1200),
+                model: data?.model || model,
+        };
+};
+
+export const calculateOpenRouter = async ({ expression }) => {
+        const model = config.openrouter.askModel;
+        const headers = openRouterHeaders();
+        const input = trimDiscord(String(expression || '').trim(), 500);
+
+        const body = createRequestBody({
+                model,
+                temperature: 0,
+                systemPrompt:
+                        'You are a careful calculator and unit conversion parser. ' +
+                        'Understand numbers written as words, mixed number words/digits, arithmetic, percentages, and common unit conversions. ' +
+                        'Return only a concise final answer. Include one tiny step only when it prevents ambiguity. ' +
+                        'If the request requires live exchange rates or current prices, say current data is needed.',
+                messages: [
+                        {
+                                role: 'user',
+                                content: `Calculate or convert this:\n${input}`,
+                        },
+                ],
+        });
+
+        const data = await requestOpenRouter({ headers, body });
+        const message = data?.choices?.[0]?.message;
+        const answer = normalizeContent(message?.content).trim();
+
+        if (!answer) throw new Error('OpenRouter returned an empty response.');
+
+        return {
+                answer: trimDiscord(answer, 900),
+                model: data?.model || model,
+        };
+};
+
 export const readAloudOpenRouter = async ({ input }) => {
         const text = trimDiscord(String(input || '').trim(), 1800);
         if (!text) throw new Error('No readable text.');
