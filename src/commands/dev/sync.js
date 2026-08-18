@@ -83,11 +83,10 @@ class SyncCommand extends Command {
                                 Routes.applicationGuildCommands(ctx.client.user.id, guildId),
                                 { body: guildData },
                         );
-                        await ctx.client.rest.put(Routes.applicationCommands(ctx.client.user.id), { body: [] });
 
                         logger.info('Sync', `Guild slash command sync requested by ${ctx.user.id} for guild ${guildId}`);
                         return ctx.reply(
-                                `<:Heart_Red:1538521542798082060> **DONE.** __**Synced ${guildData.length} slash command(s) to this guild and cleared globals.**__`,
+                                `<:Heart_Red:1538521542798082060> **DONE.** __**Synced ${guildData.length} slash command(s) to this guild. Global commands were left intact.**__`,
                         );
                 } catch (error) {
                         logger.error('Sync', `Slash command sync failed: ${error.message}`, error);

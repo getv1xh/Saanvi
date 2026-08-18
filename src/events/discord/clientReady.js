@@ -53,6 +53,10 @@ export default {
 
                 if (slashData.length > 0) {
                         try {
+                                await client.rest.put(Routes.applicationCommands(client.user.id), {
+                                        body: slashData,
+                                });
+
                                 if (config.slashCommands.scope === 'guild' && config.slashCommands.guildId) {
                                         const guildData = client.commandHandler.getGuildSlashCommandsData();
 
@@ -60,16 +64,12 @@ export default {
                                                 Routes.applicationGuildCommands(client.user.id, config.slashCommands.guildId),
                                                 { body: guildData },
                                         );
-                                        await client.rest.put(Routes.applicationCommands(client.user.id), { body: [] });
 
                                         logger.success(
                                                 'Bot',
-                                                `Registered ${guildData.length} slash command(s) to guild ${config.slashCommands.guildId}.`,
+                                                `Registered ${slashData.length} global command(s) and ${guildData.length} guild command(s) to ${config.slashCommands.guildId}.`,
                                         );
                                 } else {
-                                        await client.rest.put(Routes.applicationCommands(client.user.id), {
-                                                body: slashData,
-                                        });
                                         logger.success('Bot', `Registered ${slashData.length} slash command(s) globally.`);
                                 }
                         } catch (error) {
