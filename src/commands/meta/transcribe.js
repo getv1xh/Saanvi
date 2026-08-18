@@ -11,11 +11,7 @@ import {
         TextDisplayBuilder,
 } from 'discord.js';
 import { config } from '#config';
-import {
-        logger,
-        PREMIUM_PRICING_BUTTON_ID,
-        transcribeGroqAudio,
-} from '#utils';
+import { logger, PREMIUM_PRICING_BUTTON_ID, transcribeGroqAudio } from '#utils';
 
 const WARN_ICON = '<:warn:1538166311916544070>';
 const TRANSCRIBE_SAME_MESSAGE_TTL = 120;
@@ -32,20 +28,50 @@ const SUPPORTED_EXTENSIONS = new Set([
         'wav',
         'webm',
 ]);
+const CONTENT_TYPE_EXTENSIONS = new Map([
+        ['audio/flac', 'flac'],
+        ['audio/mpeg', 'mp3'],
+        ['audio/mp3', 'mp3'],
+        ['audio/mp4', 'm4a'],
+        ['audio/mp4a-latm', 'm4a'],
+        ['audio/x-m4a', 'm4a'],
+        ['audio/ogg', 'ogg'],
+        ['audio/wav', 'wav'],
+        ['audio/wave', 'wav'],
+        ['audio/x-wav', 'wav'],
+        ['audio/webm', 'webm'],
+        ['video/mp4', 'mp4'],
+        ['video/webm', 'webm'],
+]);
 
 const extensionFromName = (name = '') =>
-        String(name).split('.').pop()?.toLowerCase() || '';
+        String(name).split('?')[0].split('.').pop()?.toLowerCase() || '';
+
+const baseContentType = (contentType = '') =>
+        String(contentType).split(';')[0].trim().toLowerCase();
+
+const extensionFromContentType = (contentType = '') =>
+        CONTENT_TYPE_EXTENSIONS.get(baseContentType(contentType)) || '';
+
+const attachmentExtension = (attachment) => {
+        const extension = extensionFromName(attachment?.name);
+        if (SUPPORTED_EXTENSIONS.has(extension)) return extension;
+        return extensionFromContentType(attachment?.contentType);
+};
+
+const filenameForAttachment = (attachment) => {
+        const extension = attachmentExtension(attachment) || 'mp3';
+        const rawName = String(attachment?.name || `audio.${extension}`)
+                .split('?')[0]
+                .replace(/[^\w.-]+/g, '-');
+
+        if (SUPPORTED_EXTENSIONS.has(extensionFromName(rawName)))
+                return rawName;
+        return `${rawName.replace(/\.+$/, '')}.${extension}`;
+};
 
 const isSupportedAttachment = (attachment) => {
-        const extension = extensionFromName(attachment?.name);
-        if (SUPPORTED_EXTENSIONS.has(extension)) return true;
-
-        const contentType = String(attachment?.contentType || '').toLowerCase();
-        return (
-                contentType.startsWith('audio/') ||
-                contentType === 'video/mp4' ||
-                contentType === 'video/webm'
-        );
+        return Boolean(attachmentExtension(attachment));
 };
 
 const transcribableAttachment = (message) =>
@@ -127,10 +153,39 @@ const formatDuration = (ms) => {
         return `${(ms / 1000).toFixed(1)}s`;
 };
 
-const fetchAttachmentBuffer = async (attachment) => {
+class TranscribeUserError extends Error {
+        constructor(message, logMessage = message) {
+                super(logMessage);
+                this.name = 'TranscribeUserError';
+                this.userMessage = message;
+        }
+}
+
+const fetchAttachmentAudio = async (attachment) => {
+        const filename = filenameForAttachment(attachment);
+        const contentType =
+                baseContentType(attachment.contentType) ||
+                'application/octet-stream';
+        const attachmentSize = Number(attachment.size);
+
+        if (
+                Number.isFinite(attachmentSize) &&
+                attachmentSize > config.groq.maxTranscriptionBytes
+        ) {
+                return {
+                        url: attachment.url,
+                        filename,
+                        contentType,
+                        size: attachmentSize,
+                };
+        }
+
         const response = await fetch(attachment.url);
         if (!response.ok) {
-                throw new Error(`Attachment fetch failed with ${response.status}.`);
+                throw new TranscribeUserError(
+                        `${WARN_ICON} **I could not download that audio.**\nPlease try again, or re-upload the voice message and transcribe the fresh copy.`,
+                        `Attachment fetch failed with ${response.status}.`,
+                );
         }
 
         const contentLength = Number(response.headers.get('content-length'));
@@ -138,22 +193,117 @@ const fetchAttachmentBuffer = async (attachment) => {
                 Number.isFinite(contentLength) &&
                 contentLength > config.groq.maxTranscriptionBytes
         ) {
-                throw new Error('Attachment is too large.');
+                return {
+                        url: attachment.url,
+                        filename,
+                        contentType,
+                        size: contentLength,
+                };
         }
 
         const buffer = Buffer.from(await response.arrayBuffer());
         if (buffer.length > config.groq.maxTranscriptionBytes) {
-                throw new Error('Attachment is too large.');
+                return {
+                        url: attachment.url,
+                        filename,
+                        contentType,
+                        size: buffer.length,
+                };
         }
 
-        return buffer;
+        return {
+                buffer,
+                filename,
+                contentType,
+                size: buffer.length,
+        };
 };
 
 const reserveDailyUse = async (client, userId) => {
         const key = dailyLimitKey(userId);
+        const ttl = await client.c.ttl(key);
         const count = await client.c.incr(key);
-        if (count === 1) await client.c.expire(key, TRANSCRIBE_DAILY_TTL);
+        if (count === 1) {
+                await client.c.expire(key, TRANSCRIBE_DAILY_TTL);
+        } else if (ttl > 0) {
+                await client.c.expire(key, ttl);
+        } else {
+                await client.c.expire(key, TRANSCRIBE_DAILY_TTL);
+        }
         return count;
+};
+
+const refundDailyUse = async (client, userId) => {
+        const key = dailyLimitKey(userId);
+
+        try {
+                const ttl = await client.c.ttl(key);
+                const count = await client.c.decr(key);
+                if (count <= 0) {
+                        await client.c.del(key);
+                } else if (ttl > 0) {
+                        await client.c.expire(key, ttl);
+                } else {
+                        await client.c.expire(key, TRANSCRIBE_DAILY_TTL);
+                }
+        } catch (error) {
+                logger.warn(
+                        'Transcribe',
+                        `Could not refund failed transcribe usage: ${error.message}`,
+                        error,
+                );
+        }
+};
+
+const userErrorPayload = (error) => {
+        if (error instanceof TranscribeUserError)
+                return payload(error.userMessage);
+
+        if (error?.message === 'GROQ_API_KEY is not configured.') {
+                return payload(
+                        `${WARN_ICON} **Transcribe is not configured yet.**\nAsk the bot owner to set \`GROQ_API_KEY\`.`,
+                );
+        }
+
+        const status = error?.status;
+        const message = String(error?.message || '').toLowerCase();
+
+        if (status === 401 || status === 403) {
+                return payload(
+                        `${WARN_ICON} **Groq rejected the bot credentials.**\nAsk the bot owner to check the Groq API key.`,
+                );
+        }
+
+        if (
+                status === 413 ||
+                message.includes('larger') ||
+                message.includes('size')
+        ) {
+                return payload(
+                        `${WARN_ICON} **That audio is too large to transcribe.**\nTry a shorter voice message or a smaller supported audio file.`,
+                );
+        }
+
+        if (
+                status === 400 &&
+                (message.includes('format') ||
+                        message.includes('extension') ||
+                        message.includes('file type'))
+        ) {
+                return payload(
+                        `${WARN_ICON} **That audio format is not supported.**\nUse mp3, mp4, m4a, ogg, wav, webm, flac, mpeg, or mpga.`,
+                );
+        }
+
+        if (status === 429 || message.includes('rate limit')) {
+                return payload(
+                        `${WARN_ICON} **Transcribe is rate limited right now.**\nPlease try again in a bit.`,
+                );
+        }
+
+        return payload(
+                `${WARN_ICON} **I could not transcribe that right now.**\nTry a smaller supported audio file, or try again in a bit.`,
+        );
 };
 
 class TranscribeCommand extends Command {
@@ -199,6 +349,7 @@ class TranscribeCommand extends Command {
 
                 const count = await reserveDailyUse(ctx.client, ctx.user.id);
                 if (count > TRANSCRIBE_DAILY_LIMIT) {
+                        await refundDailyUse(ctx.client, ctx.user.id);
                         return ctx.editReply(dailyLimitPayload(ctx.user.id));
                 }
 
@@ -212,13 +363,14 @@ class TranscribeCommand extends Command {
                 const startedAt = Date.now();
 
                 try {
-                        const buffer = await fetchAttachmentBuffer(attachment);
+                        const audio = await fetchAttachmentAudio(attachment);
                         const result = await transcribeGroqAudio({
-                                buffer,
-                                filename: attachment.name || `message-${message.id}.mp3`,
-                                contentType:
-                                        attachment.contentType ||
-                                        'application/octet-stream',
+                                buffer: audio.buffer,
+                                url: audio.url,
+                                filename:
+                                        audio.filename ||
+                                        `message-${message.id}.mp3`,
+                                contentType: audio.contentType,
                         });
 
                         return ctx.editReply(
@@ -228,17 +380,14 @@ class TranscribeCommand extends Command {
                                 ),
                         );
                 } catch (error) {
+                        await refundDailyUse(ctx.client, ctx.user.id);
                         logger.error(
                                 'Transcribe',
                                 `Groq transcription failed: ${error.message}`,
                                 error,
                         );
 
-                        return ctx.editReply(
-                                payload(
-                                        `${WARN_ICON} **I could not transcribe that right now.**\nTry a smaller supported audio file, or try again in a bit.`,
-                                ),
-                        );
+                        return ctx.editReply(userErrorPayload(error));
                 }
         }
 }

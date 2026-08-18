@@ -20,20 +20,25 @@ export const transcribeGroqAudio = async ({
         buffer,
         filename,
         contentType = 'application/octet-stream',
+        url,
 }) => {
         const apiKey = config.groq.apiKey;
         if (!apiKey) throw new Error('GROQ_API_KEY is not configured.');
-        if (!buffer?.length) throw new Error('No audio data provided.');
+        if (!buffer?.length && !url) throw new Error('No audio data provided.');
 
         const form = new FormData();
-        form.append(
-                'file',
-                new Blob([buffer], { type: contentType }),
-                filename || 'audio.mp3',
-        );
+        if (buffer?.length) {
+                form.append(
+                        'file',
+                        new Blob([buffer], { type: contentType }),
+                        filename || 'audio.mp3',
+                );
+        } else {
+                form.append('url', url);
+        }
         form.append('model', config.groq.transcriptionModel);
         form.append('response_format', 'json');
-        form.append('temperature', '0');
+        form.append('temperature', '0.01');
 
         const response = await fetch(GROQ_TRANSCRIPTIONS_URL, {
                 method: 'POST',
