@@ -36,6 +36,11 @@ import {
         SUPPORT_REPLY_MODAL_PREFIX,
         SUPPORT_REPLY_PREFIX,
         SUPPORT_TICKET_TTL_SECONDS,
+        TTS_CARTESIA_API_KEY_INPUT_ID,
+        TTS_CARTESIA_MODEL_INPUT_ID,
+        TTS_CARTESIA_SETTINGS_MODAL_PREFIX,
+        TTS_CARTESIA_SETTINGS_PREFIX,
+        TTS_CARTESIA_VOICE_INPUT_ID,
         ASK_REPLY_MESSAGE_INPUT_ID,
         ASK_REPLY_MODAL_PREFIX,
         ASK_REPLY_PREFIX,
@@ -128,6 +133,9 @@ import {
         supportTicketKey,
         supportUserReplyOwnerPayload,
         supportOwnerTicketPayload,
+        cartesiaSetupRequiredPayload,
+        cartesiaSettingsModal,
+        ttsStatusPayload,
 } from '#utils';
 import { CommandContext } from '#context';
 import { db } from '#dbManager';
@@ -2955,6 +2963,72 @@ const handleBookmarkDeleteCancel = async (interaction) => {
         );
 };
 
+const ensureTtsOwner = (interaction, userId) => {
+        if (interaction.user.id === userId) return true;
+
+        interaction
+                .reply({
+                        content: 'Only the user who owns these TTS settings can use this.',
+                        flags: MessageFlags.Ephemeral,
+                })
+                .catch(() => {});
+        return false;
+};
+
+const showCartesiaSettingsModal = async (interaction) => {
+        const [, , userId] = interaction.customId.split(':');
+        if (!ensureTtsOwner(interaction, userId)) return;
+
+        const settings = await db.user
+                .getTtsSettings(userId)
+                .catch(() => ({ cartesia: {} }));
+
+        return interaction.showModal(
+                cartesiaSettingsModal(userId, settings?.cartesia || {}),
+        );
+};
+
+const handleCartesiaSettingsModal = async (interaction) => {
+        const [, , userId] = interaction.customId.split(':');
+        if (!ensureTtsOwner(interaction, userId)) return;
+
+        const existing = await db.user
+                .getTtsSettings(userId)
+                .catch(() => ({ cartesia: {} }));
+        const apiKey = interaction.fields
+                .getTextInputValue(TTS_CARTESIA_API_KEY_INPUT_ID)
+                ?.trim();
+        const voice = interaction.fields
+                .getTextInputValue(TTS_CARTESIA_VOICE_INPUT_ID)
+                ?.trim();
+        const model = interaction.fields
+                .getTextInputValue(TTS_CARTESIA_MODEL_INPUT_ID)
+                ?.trim();
+        const update = {
+                voice,
+                model,
+        };
+
+        if (apiKey) update.apiKey = apiKey;
+
+        await db.user.setCartesiaTtsSettings(userId, update);
+
+        if (!apiKey && !existing?.cartesia?.apiKey) {
+                return interaction.reply(
+                        cartesiaSetupRequiredPayload({
+                                userId,
+                                missing: ['API key'],
+                        }),
+                );
+        }
+
+        return interaction.reply(
+                ttsStatusPayload({
+                        body: '**Cartesia settings updated.**\nYour next `/tts provider:Cartesia` will use this voice and model.',
+                }),
+        );
+};
+
 const handleMessageComponent = async (interaction) => {
         if (
                 ![ComponentType.Button, ComponentType.StringSelect].includes(
@@ -3030,6 +3104,10 @@ const handleMessageComponent = async (interaction) => {
                 await showBookmarkDeleteConfirm(interaction);
         } else if (interaction.customId.startsWith(SUPPORT_CLOSE_PREFIX)) {
                 await handleSupportCloseButton(interaction);
+        } else if (
+                interaction.customId.startsWith(TTS_CARTESIA_SETTINGS_PREFIX)
+        ) {
+                await showCartesiaSettingsModal(interaction);
         } else if (interaction.customId.startsWith('addy_qr:')) {
                 await handleQrButton(interaction);
         } else if (interaction.customId.startsWith('upi_qr:')) {
@@ -3168,6 +3246,14 @@ export default {
                                         )
                                 ) {
                                         await handleSupportTicketModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                TTS_CARTESIA_SETTINGS_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleCartesiaSettingsModal(
                                                 interaction,
                                         );
                                 }

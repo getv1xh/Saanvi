@@ -36,6 +36,13 @@ const userSchema = new mongoose.Schema(
                                 default: [],
                         },
                 },
+                tts: {
+                        cartesia: {
+                                apiKey: { type: String, default: null },
+                                voice: { type: String, default: '' },
+                                model: { type: String, default: '' },
+                        },
+                },
                 premiumExpiresAt: { type: Date, default: null },
         },
         {

@@ -31,6 +31,14 @@ const normaliseBookmarks = (bookmarks = {}) => ({
                 : [],
 });
 
+const normaliseTts = (tts = {}) => ({
+        cartesia: {
+                apiKey: tts?.cartesia?.apiKey || null,
+                voice: String(tts?.cartesia?.voice || ''),
+                model: String(tts?.cartesia?.model || ''),
+        },
+});
+
 export class UserRepository {
         async findById(userId) {
                 if (!userId) return null;
@@ -57,6 +65,13 @@ export class UserRepository {
                                         $setOnInsert: {
                                                 addresses: {},
                                                 bookmarks: { collections: [] },
+                                                tts: {
+                                                        cartesia: {
+                                                                apiKey: null,
+                                                                voice: '',
+                                                                model: '',
+                                                        },
+                                                },
                                         },
                                 },
                                 { upsert: true, new: true },
@@ -177,6 +192,37 @@ export class UserRepository {
                 return collection;
         }
 
+        async getTtsSettings(userId) {
+                const user = await this.findById(userId);
+                return normaliseTts(user?.tts);
+        }
+
+        async setCartesiaTtsSettings(userId, settings = {}) {
+                const user = await this.findOrCreate(userId);
+                const current = normaliseTts(user.tts).cartesia;
+                const next = {
+                        apiKey:
+                                settings.apiKey !== undefined
+                                        ? settings.apiKey || null
+                                        : current.apiKey,
+                        voice:
+                                settings.voice !== undefined
+                                        ? String(settings.voice || '').trim()
+                                        : current.voice,
+                        model:
+                                settings.model !== undefined
+                                        ? String(settings.model || '').trim()
+                                        : current.model,
+                };
+
+                await User.findByIdAndUpdate(userId, {
+                        $set: { 'tts.cartesia': next },
+                });
+                await client.c.del(`${CACHE_PREFIX}${userId}`);
+
+                return { cartesia: next };
+        }
+
         async getPremiumExpiresAt(userId) {
                 const user = await this.findById(userId);
                 return user?.premiumExpiresAt ?? null;
@@ -218,6 +264,7 @@ export class UserRepository {
                         ...rest,
                         addresses,
                         bookmarks: normaliseBookmarks(rest.bookmarks),
+                        tts: normaliseTts(rest.tts),
                 };
         }
 }

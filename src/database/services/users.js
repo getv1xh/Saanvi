@@ -37,6 +37,14 @@ export class UserService {
                 return await this.repo.deleteBookmarkCollection(userId, collectionId);
         }
 
+        async getTtsSettings(userId) {
+                return await this.repo.getTtsSettings(userId);
+        }
+
+        async setCartesiaTtsSettings(userId, settings) {
+                return await this.repo.setCartesiaTtsSettings(userId, settings);
+        }
+
         async isPremium(userId) {
                 return await this.repo.isPremium(userId);
         }

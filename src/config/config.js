@@ -50,6 +50,12 @@ export const config = {
                 maxTokens: numberEnv(process.env.ASK_MAX_TOKENS, 700),
         },
 
+        cartesia: {
+                apiVersion: process.env.CARTESIA_API_VERSION || '2026-08-14',
+                defaultModel: process.env.CARTESIA_DEFAULT_MODEL || 'sonic-3.5',
+                defaultVoice: process.env.CARTESIA_DEFAULT_VOICE || '',
+        },
+
         groq: {
                 apiKey: process.env.GROQ_API_KEY || '',
                 transcriptionModel: process.env.GROQ_TRANSCRIPTION_MODEL || 'whisper-large-v3-turbo',
