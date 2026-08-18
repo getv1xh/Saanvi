@@ -9,6 +9,7 @@ export * from './price.js';
 export * from './chart.js';
 export * from './pullRestart.js';
 export * from './openrouter.js';
+export * from './groq.js';
 export * from './askConversation.js';
 export * from './suggestReply.js';
 export * from './refineMessage.js';

@@ -50,6 +50,12 @@ export const config = {
                 maxTokens: numberEnv(process.env.ASK_MAX_TOKENS, 700),
         },
 
+        groq: {
+                apiKey: process.env.GROQ_API_KEY || '',
+                transcriptionModel: process.env.GROQ_TRANSCRIPTION_MODEL || 'whisper-large-v3-turbo',
+                maxTranscriptionBytes: numberEnv(process.env.GROQ_TRANSCRIPTION_MAX_BYTES, 25 * 1024 * 1024),
+        },
+
         slashCommands: {
                 guildId: process.env.SLASH_GUILD_ID || process.env.DEV_GUILD_ID || '',
                 scope: process.env.SLASH_COMMAND_SCOPE || (process.env.SLASH_GUILD_ID || process.env.DEV_GUILD_ID ? 'guild' : 'global'),
