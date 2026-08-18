@@ -3,6 +3,7 @@ import {
         ButtonBuilder,
         ButtonStyle,
         ContainerBuilder,
+        FileBuilder,
         MessageFlags,
         ModalBuilder,
         SeparatorBuilder,
@@ -46,21 +47,18 @@ export const ttsStatusPayload = ({
 };
 
 export const ttsAudioPayload = ({
-        provider,
-        model,
-        voice,
         attachment,
+        duration,
+        filename,
 }) => {
-        const details = [
-                `provider: ${provider}`,
-                model ? `model: ${model}` : null,
-                voice ? `voice: ${voice}` : null,
-        ]
-                .filter(Boolean)
-                .join(' | ');
         const container = new ContainerBuilder()
                 .setAccentColor(0xffffff)
-                .addTextDisplayComponents(text(`**TTS Done**\n-# ${details}`));
+                .addTextDisplayComponents(text(`**Generated in ${duration}**`))
+                .addFileComponents(
+                        new FileBuilder({
+                                file: { url: `attachment://${filename}` },
+                        }),
+                );
 
         return {
                 components: [container],

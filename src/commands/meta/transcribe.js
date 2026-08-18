@@ -376,7 +376,7 @@ class TranscribeCommand extends Command {
                         return ctx.editReply(
                                 payload(
                                         `**Transcription**\n${result.text}`,
-                                        `generated in ${formatDuration(Date.now() - startedAt)} using ${result.model}`,
+                                        `generated in ${formatDuration(Date.now() - startedAt)}`,
                                 ),
                         );
                 } catch (error) {
