@@ -77,9 +77,10 @@ const PAGES = [
         },
         {
                 title: '### Utility',
-                commands: ['ask', 'bookmarks', 'support', 'ping', 'stats', 'invite'],
+                commands: ['ask', 'refine', 'bookmarks', 'support', 'ping', 'stats', 'invite'],
                 descriptions: {
                         ask:       'ask Saanvi a question, with optional web search',
+                        refine:    'improve your message in English',
                         bookmarks: 'view your saved message collections',
                         support:   'open a premium support ticket',
                         ping:      'check websocket, database and average latency',

@@ -61,6 +61,15 @@ const desiredSuggestReplyCount = (content = '') => {
         return 1;
 };
 
+const desiredRefinementCount = (content = '') => {
+        const text = String(content || '').trim();
+        const words = text.split(/\s+/).filter(Boolean).length;
+
+        if (words <= 6 || text.length <= 40) return 4;
+        if (words <= 25 || text.length <= 160) return 2;
+        return 1;
+};
+
 const parseReplySuggestions = (text, max) => {
         const cleaned = String(text || '')
                 .replace(/```[\s\S]*?```/g, (match) => match.replace(/```/g, '').trim())
@@ -333,6 +342,64 @@ export const suggestReplyOpenRouter = async ({
         return {
                 answer: trimDiscord(suggestions.join('\n---\n') || answer, 1800),
                 suggestions,
+                model: data?.model || model,
+        };
+};
+
+export const refineMessageOpenRouter = async ({
+        sourceMessage,
+        tone,
+        customTone = '',
+        changeRequest = '',
+        previousRefinement = '',
+}) => {
+        const model = config.openrouter.suggestReplyModel;
+        const headers = openRouterHeaders();
+        const toneText = tone === 'custom' ? customTone : tone;
+        const refinementCount = desiredRefinementCount(sourceMessage.content);
+        const refinementInstruction =
+                refinementCount > 1
+                        ? `Write ${refinementCount} distinct refined versions. Put each version on its own numbered line.`
+                        : 'Write one refined version.';
+
+        const body = createRequestBody({
+                model,
+                temperature: 0.65,
+                systemPrompt:
+                        "You rewrite the user's own Discord message into clear, natural English. " +
+                        'Always output English only. Translate Hindi, Hinglish, Urdu, and any other language into English before improving the wording. ' +
+                        'Preserve the original meaning, intent, names, URLs, numbers, and directness. Do not add new facts. ' +
+                        'Return only the refined message text. Do not explain, add labels, use markdown code fences, or mention that you are an AI.',
+                messages: [
+                        {
+                                role: 'user',
+                                content:
+                                        `Original message:\n${sourceMessage.content}\n\n` +
+                                        `Requested tone: ${toneText || 'normal'}\n` +
+                                        (previousRefinement
+                                                ? `Previous refinement:\n${previousRefinement}\n\n`
+                                                : '') +
+                                        (changeRequest
+                                                ? `Changes requested:\n${changeRequest}\n\n`
+                                                : '') +
+                                        `${refinementInstruction} Keep it Discord-friendly. Avoid emojis unless they are necessary to preserve the original meaning. Maximum ${refinementCount} version${refinementCount === 1 ? '' : 's'}.`,
+                        },
+                ],
+        });
+
+        const data = await requestOpenRouter({ headers, body });
+        const message = data?.choices?.[0]?.message;
+        const answer = normalizeContent(message?.content).trim();
+
+        if (!answer) throw new Error('OpenRouter returned an empty response.');
+        const refinements = parseReplySuggestions(answer, refinementCount);
+
+        return {
+                answer: trimDiscord(
+                        refinements.join('\n---\n') || answer,
+                        1800,
+                ),
+                refinements,
                 model: data?.model || model,
         };
 };

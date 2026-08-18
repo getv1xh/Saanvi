@@ -52,6 +52,12 @@ import {
         SUGGEST_REPLY_RETRY_MODAL_PREFIX,
         SUGGEST_REPLY_RETRY_PREFIX,
         SUGGEST_REPLY_TONE_PREFIX,
+        REFINE_MESSAGE_CHANGES_INPUT_ID,
+        REFINE_MESSAGE_CUSTOM_MODAL_PREFIX,
+        REFINE_MESSAGE_CUSTOM_TONE_INPUT_ID,
+        REFINE_MESSAGE_RETRY_MODAL_PREFIX,
+        REFINE_MESSAGE_RETRY_PREFIX,
+        REFINE_MESSAGE_TONE_PREFIX,
         BOOKMARK_CREATE_MODAL_PREFIX,
         BOOKMARK_CREATE_PREFIX,
         BOOKMARK_DELETE_CANCEL_PREFIX,
@@ -79,6 +85,14 @@ import {
         suggestReplyOpenRouter,
         suggestReplyRetryModal,
         suggestReplySourceKey,
+        parseStoredRefineMessageSource,
+        refineMessageCustomToneModal,
+        refineMessageGeneratedPayload,
+        refineMessageOpenRouter,
+        refineMessageRetryModal,
+        refineMessageSourceKey,
+        scheduleRefineMessageButtonRemoval,
+        storeRefineMessageSource,
         createSupportTicketId,
         supportActiveKey,
         supportAlreadyOpenPayload,
@@ -1077,6 +1091,254 @@ const handleSuggestReplyRetryModal = async (interaction) => {
         });
 };
 
+const parseRefineMessageParts = (customId) => {
+        const [, action, sourceId, userId] = customId.split(':');
+        if (!['tone', 'retry', 'custommodal', 'retrymodal'].includes(action)) {
+                return null;
+        }
+        return { action, sourceId, userId };
+};
+
+const getRefineMessageSource = async (interaction, sourceId, userId) => {
+        const source = parseStoredRefineMessageSource(
+                await interaction.client.c.get(
+                        refineMessageSourceKey(sourceId),
+                ),
+        );
+
+        if (!source || source.userId !== userId) return null;
+        return source;
+};
+
+const refineMessageErrorMessage = () =>
+        'I could not refine that right now. Try again in a bit.';
+
+const runRefineMessageGeneration = async ({
+        interaction,
+        sourceId,
+        userId,
+        source,
+        tone,
+        customTone = '',
+        changeRequest = '',
+        previousRefinement = '',
+        updateOriginal = false,
+}) => {
+        const startedAt = Date.now();
+        const thinkingPayload = refineMessageGeneratedPayload({
+                status: 'Refining the message...',
+        });
+
+        if (updateOriginal) {
+                await interaction.update(thinkingPayload);
+        } else if (interaction.deferred) {
+                await interaction.editReply(thinkingPayload);
+        }
+
+        try {
+                const result = await refineMessageOpenRouter({
+                        sourceMessage: source,
+                        tone,
+                        customTone,
+                        changeRequest,
+                        previousRefinement,
+                });
+                const duration = formatAskDuration(Date.now() - startedAt);
+
+                await storeRefineMessageSource(interaction.client, sourceId, {
+                        ...source,
+                        tone,
+                        customTone,
+                        previousRefinement: result.answer,
+                });
+
+                const payloadOptions = {
+                        answer: result.answer,
+                        refinements: result.refinements,
+                        footer: `generated in ${duration}`,
+                        sourceId,
+                        userId,
+                        includeRetryButton: true,
+                };
+                const reply = await interaction.editReply(
+                        refineMessageGeneratedPayload(payloadOptions),
+                );
+                scheduleRefineMessageButtonRemoval(reply, payloadOptions);
+                return reply;
+        } catch (error) {
+                logger.error(
+                        'RefineMessage',
+                        `OpenRouter request failed: ${error.message}`,
+                        error,
+                );
+                return interaction.editReply(
+                        refineMessageGeneratedPayload({
+                                answer: refineMessageErrorMessage(),
+                        }),
+                );
+        }
+};
+
+const handleRefineMessageToneSelect = async (interaction) => {
+        const parts = parseRefineMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'tone') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This refine menu belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getRefineMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This refine request has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const tone = interaction.values?.[0];
+        if (tone === 'custom') {
+                return interaction.showModal(
+                        refineMessageCustomToneModal(sourceId, userId),
+                );
+        }
+
+        return runRefineMessageGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                tone: tone || 'normal',
+                updateOriginal: true,
+        });
+};
+
+const showRefineMessageRetryModal = async (interaction) => {
+        const parts = parseRefineMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'retry') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This retry button belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getRefineMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This refine request has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        return interaction.showModal(refineMessageRetryModal(sourceId, userId));
+};
+
+const handleRefineMessageCustomToneModal = async (interaction) => {
+        const parts = parseRefineMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'custommodal') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This custom tone form belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getRefineMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This refine request has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const customTone = interaction.fields
+                .getTextInputValue(REFINE_MESSAGE_CUSTOM_TONE_INPUT_ID)
+                ?.trim();
+        if (!customTone) {
+                return interaction.reply({
+                        content: 'Please enter a tone.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        return runRefineMessageGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                tone: 'custom',
+                customTone,
+        });
+};
+
+const handleRefineMessageRetryModal = async (interaction) => {
+        const parts = parseRefineMessageParts(interaction.customId);
+        if (!parts || parts.action !== 'retrymodal') return;
+
+        const { sourceId, userId } = parts;
+        if (interaction.user.id !== userId) {
+                return interaction.reply({
+                        content: 'This retry form belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const source = await getRefineMessageSource(
+                interaction,
+                sourceId,
+                userId,
+        );
+        if (!source) {
+                return interaction.reply({
+                        content: 'This refine request has expired.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        const changeRequest = interaction.fields
+                .getTextInputValue(REFINE_MESSAGE_CHANGES_INPUT_ID)
+                ?.trim();
+        if (!changeRequest) {
+                return interaction.reply({
+                        content: 'Please describe what to change.',
+                        flags: MessageFlags.Ephemeral,
+                });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        return runRefineMessageGeneration({
+                interaction,
+                sourceId,
+                userId,
+                source,
+                tone: source.tone || 'normal',
+                customTone: source.customTone || '',
+                changeRequest,
+                previousRefinement: source.previousRefinement || '',
+        });
+};
+
 const followUpButton = (route, userId, plan, method) =>
         new ButtonBuilder()
                 .setCustomId(
@@ -1772,7 +2034,9 @@ const showSupportReplyModal = async (interaction) => {
                 });
         }
 
-        return interaction.showModal(supportReplyModal(route, ticketId, userId));
+        return interaction.showModal(
+                supportReplyModal(route, ticketId, userId),
+        );
 };
 
 const handleSupportReplyModal = async (interaction) => {
@@ -2039,10 +2303,12 @@ const handlePremiumComponent = async (interaction) => {
 const ensureBookmarkOwner = (interaction, userId) => {
         if (interaction.user.id === userId) return true;
 
-        interaction.reply({
-                content: 'This bookmark menu belongs to someone else.',
-                flags: MessageFlags.Ephemeral,
-        }).catch(() => {});
+        interaction
+                .reply({
+                        content: 'This bookmark menu belongs to someone else.',
+                        flags: MessageFlags.Ephemeral,
+                })
+                .catch(() => {});
         return false;
 };
 
@@ -2219,7 +2485,8 @@ const showBookmarkDeleteConfirm = async (interaction) => {
 };
 
 const handleBookmarkDeleteConfirm = async (interaction) => {
-        const [, action, collectionId, userId] = interaction.customId.split(':');
+        const [, action, collectionId, userId] =
+                interaction.customId.split(':');
         if (action !== 'deleteconfirm') return;
         if (!ensureBookmarkOwner(interaction, userId)) return;
 
@@ -2228,7 +2495,9 @@ const handleBookmarkDeleteConfirm = async (interaction) => {
                         userId,
                         collectionId,
                 );
-                return interaction.update(bookmarkDeletedPayload(collection.name));
+                return interaction.update(
+                        bookmarkDeletedPayload(collection.name),
+                );
         } catch (error) {
                 if (error.code === 'BOOKMARK_COLLECTION_NOT_FOUND') {
                         const bookmarks = await db.user.getBookmarks(userId);
@@ -2302,12 +2571,18 @@ const handleMessageComponent = async (interaction) => {
         ) {
                 await showSuggestReplyRetryModal(interaction);
         } else if (
+                interaction.customId.startsWith(REFINE_MESSAGE_TONE_PREFIX)
+        ) {
+                await handleRefineMessageToneSelect(interaction);
+        } else if (
+                interaction.customId.startsWith(REFINE_MESSAGE_RETRY_PREFIX)
+        ) {
+                await showRefineMessageRetryModal(interaction);
+        } else if (
                 interaction.customId.startsWith(BOOKMARK_SAVE_SELECT_PREFIX)
         ) {
                 await handleBookmarkSaveSelect(interaction);
-        } else if (
-                interaction.customId.startsWith(BOOKMARK_CREATE_PREFIX)
-        ) {
+        } else if (interaction.customId.startsWith(BOOKMARK_CREATE_PREFIX)) {
                 await showBookmarkCreateModal(interaction);
         } else if (
                 interaction.customId.startsWith(BOOKMARK_LIST_SELECT_PREFIX)
@@ -2409,6 +2684,22 @@ export default {
                                         )
                                 ) {
                                         await handleSuggestReplyRetryModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                REFINE_MESSAGE_CUSTOM_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleRefineMessageCustomToneModal(
+                                                interaction,
+                                        );
+                                } else if (
+                                        interaction.customId.startsWith(
+                                                REFINE_MESSAGE_RETRY_MODAL_PREFIX,
+                                        )
+                                ) {
+                                        await handleRefineMessageRetryModal(
                                                 interaction,
                                         );
                                 } else if (
